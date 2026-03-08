@@ -1,5 +1,6 @@
 <img width="381" height="159" alt="title" src="https://github.com/user-attachments/assets/8bd2e83e-049c-474f-8252-51fb12ae0da4" />
- # 🎮 Brixels
+
+# 🎮 Brixels
 
 A 2D Minecraft-inspired sandbox game built with vanilla JavaScript and HTML5 Canvas. Explore procedurally generated worlds, mine resources, craft tools, and survive the day-night cycle!
 
@@ -347,4 +348,5 @@ Project Link: [https://github.com/yourusername/block-world](https://github.com/y
 ---
 
 Made with ❤️ by [Your Name]
+
 
