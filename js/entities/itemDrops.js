@@ -75,7 +75,7 @@ class ItemDrops {
         }
     }
     
-    render(ctx, camera, textures) {
+    render(ctx, camera, textures, darkness = 0) {
         for (const item of this.items) {
             const screenX = item.x - camera.x;
             const screenY = item.y - camera.y;
@@ -93,6 +93,12 @@ class ItemDrops {
             // Seitliche 3D-Skalierung
             ctx.scale(scaleX, 1);
             
+            // Wende Dunkelheit als Brightness-Filter an
+            if (darkness > 0) {
+                const brightness = Math.round((1 - darkness) * 100);
+                ctx.filter = `brightness(${brightness}%)`;
+            }
+            
             const texture = textures[item.type];
             if (texture) {
                 ctx.drawImage(
@@ -104,6 +110,7 @@ class ItemDrops {
                 );
             }
             
+            ctx.filter = 'none';
             ctx.restore();
         }
     }

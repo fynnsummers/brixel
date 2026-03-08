@@ -7,10 +7,21 @@ class Renderer {
         this.textures = {};
         this.highlightAlpha = 0;
         this.targetHighlightAlpha = 0;
+        
+        // Tag-Nacht-Zyklus - starte am Tag (0.5 = Mittag)
+        this.dayTime = 0.5;
     }
     
     async loadTextures() {
-        const textureNames = ['stone', 'dirt', 'dirt-grass', 'grass', 'coalore', 'ironore', 'player', 'cursor', 'blocked-cursor', 'inventory', 'chat', 'chat-inactive', 'tooltip'];
+        const textureNames = ['stone', 'dirt', 'dirt-grass', 'grass', 'coalore', 'ironore', 'bedrock', 'diamondore', 'emeraldore', 'cursor', 'blocked-cursor', 'inventory', 'chat', 'chat-inactive', 'tooltip'];
+        
+        // Player-Animationen hinzufügen
+        for (let i = 1; i <= 2; i++) {
+            textureNames.push(`p-stand${i}`);
+        }
+        for (let i = 1; i <= 2; i++) {
+            textureNames.push(`p-go${i}`);
+        }
         
         // Tools hinzufügen
         const toolTypes = ['axe', 'pickaxe', 'shovel', 'sword'];
@@ -32,7 +43,9 @@ class Renderer {
         
         const promises = textureNames.map(name => {
             let path;
-            if (name === 'player' || name === 'cursor' || name === 'blocked-cursor') {
+            if (name === 'cursor' || name === 'blocked-cursor') {
+                path = `assets/${name}.png`;
+            } else if (name.startsWith('p-stand') || name.startsWith('p-go')) {
                 path = `assets/${name}.png`;
             } else if (name === 'inventory' || name === 'chat' || name === 'chat-inactive' || name === 'tooltip') {
                 path = `assets/ui/${name}.png`;
@@ -69,11 +82,15 @@ class Renderer {
     }
     
     render(world, player, camera, mouse, blockBreaker, particleSystem, hotbar, health, itemDrops, inventory, input, chat) {
-        this.ctx.fillStyle = '#87CEEB';
-        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        // Zeichne Himmel mit Gradient (Tag-Nacht-Zyklus)
+        const skyColors = this.getSkyColors();
+        this.drawPixelatedGradient(skyColors);
         
         this.ctx.save();
         this.ctx.scale(camera.zoom, camera.zoom);
+        
+        // Berechne Dunkelheit für Blöcke/Entities
+        const darkness = this.getDarkness();
         
         const startChunk = Math.floor((camera.x - CONFIG.BLOCK_SIZE) / (CONFIG.CHUNK_WIDTH * CONFIG.BLOCK_SIZE));
         const endChunk = Math.ceil((camera.x + this.canvas.width / camera.zoom + CONFIG.BLOCK_SIZE) / (CONFIG.CHUNK_WIDTH * CONFIG.BLOCK_SIZE));
@@ -127,7 +144,15 @@ class Renderer {
         this.ctx.save();
         this.ctx.translate(playerScreenX + player.width / 2, playerScreenY + player.height / 2);
         this.ctx.scale(player.scale, 1);
-        this.ctx.drawImage(this.textures['player'], -player.width / 2, -player.height / 2, player.width, player.height);
+        
+        // Hole aktuellen Animations-Frame
+        const animFrame = player.getAnimationFrame();
+        const playerTexture = this.textures[animFrame];
+        
+        if (playerTexture) {
+            this.ctx.drawImage(playerTexture, -player.width / 2, -player.height / 2, player.width, player.height);
+        }
+        
         this.ctx.restore();
         
         const selectedSlot = hotbar.getSelectedSlot();
@@ -153,20 +178,22 @@ class Renderer {
                     // Rotation und Scale kombinieren
                     this.ctx.scale(player.scale, 1);
                     this.ctx.rotate(CONFIG.TOOL_DISPLAY.ROTATION * Math.PI / 180);
+                    
                     this.ctx.drawImage(itemTexture, -toolSize / 2, -toolSize / 2, toolSize, toolSize);
                     this.ctx.restore();
                 } else {
-                    // Block-Anzeige (wie vorher)
+                    // Block-Anzeige
                     const itemSize = 16;
                     const itemX = playerScreenX + player.width / 2 - itemSize / 2;
                     const itemY = playerScreenY - itemSize - 8;
+                    
                     this.ctx.drawImage(itemTexture, itemX, itemY, itemSize, itemSize);
                 }
             }
         }
         
         particleSystem.render(this.ctx, camera, this.textures);
-        itemDrops.render(this.ctx, camera, this.textures);
+        itemDrops.render(this.ctx, camera, this.textures, darkness);
         
         if (this.highlightAlpha > 0.01 && !mouse.isDown && !input.inventoryOpen) {
             const highlightWorldX = mouse.blockX * CONFIG.BLOCK_SIZE;
@@ -199,6 +226,15 @@ class Renderer {
         }
         
         this.ctx.restore();
+        
+        // Dunkelheit als schwarzes Overlay über die gesamte Welt (außer UI)
+        if (darkness > 0) {
+            this.ctx.save();
+            this.ctx.globalAlpha = darkness;
+            this.ctx.fillStyle = '#000000';
+            this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+            this.ctx.restore();
+        }
         
         // Inventar-Overlay (wenn E gedrückt) - VOR Hotbar und Cursor
         let hoveredSlotIndex = -1; // Track hovered slot für Tooltip
@@ -318,10 +354,10 @@ class Renderer {
         
         const healthTextureName = health.getHealthTextureName();
         if (this.textures[healthTextureName]) {
-            const healthScale = 2;
-            const healthWidth = this.textures[healthTextureName].width * healthScale;
-            const healthHeight = this.textures[healthTextureName].height * healthScale;
-            this.ctx.drawImage(this.textures[healthTextureName], 20, 20, healthWidth, healthHeight);
+            const healthConfig = CONFIG.HEALTH_BAR;
+            const healthWidth = this.textures[healthTextureName].width * healthConfig.SCALE;
+            const healthHeight = this.textures[healthTextureName].height * healthConfig.SCALE;
+            this.ctx.drawImage(this.textures[healthTextureName], healthConfig.X, healthConfig.Y, healthWidth, healthHeight);
         }
         
         const blockX = Math.floor(player.x / CONFIG.BLOCK_SIZE);
@@ -690,9 +726,17 @@ class Renderer {
         this.ctx.textAlign = 'center';
         this.ctx.textBaseline = 'top';
         
+        // Berechne vertikale Zentrierung wenn aktiviert
+        let startY = tooltipY + config.PADDING_Y;
+        if (config.CENTER_VERTICALLY) {
+            const totalTextHeight = lines.length * config.LINE_HEIGHT;
+            const availableHeight = tooltipHeight - config.PADDING_Y * 2;
+            startY = tooltipY + (tooltipHeight - totalTextHeight) / 2;
+        }
+        
         for (let i = 0; i < lines.length; i++) {
             const textX = tooltipX + tooltipWidth / 2;
-            const textY = tooltipY + config.PADDING_Y + i * config.LINE_HEIGHT;
+            const textY = startY + i * config.LINE_HEIGHT;
             
             // Weicher Schatten
             this.ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
@@ -776,8 +820,10 @@ class Renderer {
             const mouseBlockX = Math.floor(mouse.worldX / CONFIG.BLOCK_SIZE);
             const mouseBlockY = Math.floor(mouse.worldY / CONFIG.BLOCK_SIZE);
 
-            const startX = 30;
-            let currentY = 90;
+            // Position unter der Health Bar
+            const healthConfig = CONFIG.HEALTH_BAR;
+            const startX = healthConfig.X + 10;
+            let currentY = healthConfig.Y + 70; // 70px unter Health Bar Start
 
             this.ctx.font = '14px "Press Start 2P", monospace';
             this.ctx.strokeStyle = '#000000be';
@@ -833,5 +879,120 @@ class Renderer {
             this.ctx.restore();
             this.lastFrameTime = Date.now();
         }
-
+    
+    updateDayNightCycle(deltaTime) {
+        if (!CONFIG.DAY_NIGHT_CYCLE.ENABLED) return;
+        
+        // Update Zeit (0 bis 1)
+        this.dayTime += deltaTime / CONFIG.DAY_NIGHT_CYCLE.CYCLE_DURATION;
+        if (this.dayTime >= 1) {
+            this.dayTime -= 1;
+        }
+    }
+    
+    getSkyColors() {
+        const time = this.dayTime;
+        const config = CONFIG.DAY_NIGHT_CYCLE;
+        
+        // Definiere Farben für verschiedene Tageszeiten (nie ganz schwarz)
+        const colors = {
+            night: { top: '#1a1a3a', bottom: '#2a2a4e' },      // Dunkelblaue Nacht (nicht schwarz)
+            sunrise: { top: '#ff6b35', bottom: '#ffd93d' },    // Orange/Gelb
+            day: { top: '#87CEEB', bottom: '#b8e6ff' },        // Helles Blau
+            sunset: { top: '#ff6b35', bottom: '#ff8c42' },     // Orange
+        };
+        
+        let topColor, bottomColor;
+        
+        if (time < config.SUNRISE_TIME) {
+            // Nacht bis Sonnenaufgang
+            const t = time / config.SUNRISE_TIME;
+            topColor = this.lerpColor(colors.night.top, colors.sunrise.top, t);
+            bottomColor = this.lerpColor(colors.night.bottom, colors.sunrise.bottom, t);
+        } else if (time < 0.3) {
+            // Sonnenaufgang bis Tag
+            const t = (time - config.SUNRISE_TIME) / 0.1;
+            topColor = this.lerpColor(colors.sunrise.top, colors.day.top, t);
+            bottomColor = this.lerpColor(colors.sunrise.bottom, colors.day.bottom, t);
+        } else if (time < config.SUNSET_TIME) {
+            // Tag
+            topColor = colors.day.top;
+            bottomColor = colors.day.bottom;
+        } else if (time < 0.8) {
+            // Sonnenuntergang
+            const t = (time - config.SUNSET_TIME) / 0.1;
+            topColor = this.lerpColor(colors.day.top, colors.sunset.top, t);
+            bottomColor = this.lerpColor(colors.day.bottom, colors.sunset.bottom, t);
+        } else {
+            // Sonnenuntergang bis Nacht
+            const t = (time - 0.8) / 0.2;
+            topColor = this.lerpColor(colors.sunset.top, colors.night.top, t);
+            bottomColor = this.lerpColor(colors.sunset.bottom, colors.night.bottom, t);
+        }
+        
+        return { top: topColor, bottom: bottomColor };
+    }
+    
+    getDarkness() {
+        if (!CONFIG.DAY_NIGHT_CYCLE.ENABLED) return 0;
+        
+        const time = this.dayTime;
+        const config = CONFIG.DAY_NIGHT_CYCLE;
+        const maxDarkness = 1 - config.NIGHT_DARKNESS; // 0.65 -> 0.35 Dunkelheit
+        
+        // Berechne Dunkelheit basierend auf Tageszeit
+        if (time < config.SUNRISE_TIME) {
+            // Nacht bis Sonnenaufgang
+            const t = time / config.SUNRISE_TIME;
+            return (1 - t) * maxDarkness;
+        } else if (time < 0.3) {
+            // Sonnenaufgang bis Tag
+            return 0;
+        } else if (time < config.SUNSET_TIME) {
+            // Tag
+            return 0;
+        } else if (time < 0.8) {
+            // Sonnenuntergang
+            const t = (time - config.SUNSET_TIME) / 0.1;
+            return t * maxDarkness * 0.5;
+        } else {
+            // Sonnenuntergang bis Nacht
+            const t = (time - 0.8) / 0.2;
+            return 0.5 * maxDarkness + t * 0.5 * maxDarkness;
+        }
+    }
+    
+    lerpColor(color1, color2, t) {
+        const r1 = parseInt(color1.slice(1, 3), 16);
+        const g1 = parseInt(color1.slice(3, 5), 16);
+        const b1 = parseInt(color1.slice(5, 7), 16);
+        
+        const r2 = parseInt(color2.slice(1, 3), 16);
+        const g2 = parseInt(color2.slice(3, 5), 16);
+        const b2 = parseInt(color2.slice(5, 7), 16);
+        
+        const r = Math.round(r1 + (r2 - r1) * t);
+        const g = Math.round(g1 + (g2 - g1) * t);
+        const b = Math.round(b1 + (b2 - b1) * t);
+        
+        return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+    }
+    
+    
+    drawPixelatedGradient(colors) {
+        const pixelSize = 32; // Größe der "Pixel" für den Gradient (größer = pixeliger)
+        const width = this.canvas.width;
+        const height = this.canvas.height;
+        const colorSteps = 8; // Anzahl der Farbstufen (weniger = pixeliger)
+        
+        for (let y = 0; y < height; y += pixelSize) {
+            const t = y / height;
+            // Quantisiere t auf colorSteps Stufen für pixelige Farbübergänge
+            const quantizedT = Math.floor(t * colorSteps) / colorSteps;
+            const color = this.lerpColor(colors.top, colors.bottom, quantizedT);
+            
+            this.ctx.fillStyle = color;
+            this.ctx.fillRect(0, y, width, pixelSize);
+        }
+    }
 }

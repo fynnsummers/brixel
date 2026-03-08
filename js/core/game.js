@@ -144,6 +144,9 @@ class Game {
         const deltaTime = now - this.lastTime;
         this.lastTime = now;
         
+        // Update Tag-Nacht-Zyklus
+        this.renderer.updateDayNightCycle(deltaTime);
+        
         // Synchronisiere Chat-Status mit Input
         if (this.input.chatOpen && !this.chat.isOpen) {
             this.chat.open();
@@ -159,6 +162,9 @@ class Game {
         // Nur updaten wenn am Leben
         if (this.health.isAlive()) {
             this.player.update(this.input.keys, this.world);
+            
+            // Update Player Animation
+            this.player.updateAnimation(deltaTime);
             
             // Prüfe Fallschaden
             const fallDamage = this.player.getFallDamage();

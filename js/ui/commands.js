@@ -8,7 +8,9 @@ class CommandHandler {
             'help': this.cmdHelp.bind(this),
             'clear': this.cmdClear.bind(this),
             'list': this.cmdList.bind(this),
-            'adm': this.cmdAdm.bind(this)
+            'adm': this.cmdAdm.bind(this),
+            'fly': this.cmdFly.bind(this),
+            'time': this.cmdTime.bind(this)
         };
     }
     
@@ -99,6 +101,8 @@ class CommandHandler {
         this.game.chat.addMessage('§7/give <item> [count] - Give yourself items');
         this.game.chat.addMessage('§7/list [category] - List all items');
         this.game.chat.addMessage('§7/adm - Give all tools (admin)');
+        this.game.chat.addMessage('§7/fly <on|off> - Toggle fly mode');
+        this.game.chat.addMessage('§7/time <day|night> - Set time of day');
         this.game.chat.addMessage('§7/clear - Clear chat');
         this.game.chat.addMessage('§7/help - Show this help');
     }
@@ -163,5 +167,48 @@ class CommandHandler {
         
         this.game.chat.addMessage(`§a[ADMIN] Gave ${addedCount} tools!`);
         this.game.chat.addMessage('§7All tools have been added to your inventory');
+    }
+    
+    // Command: /fly <on|off>
+    cmdFly(args) {
+        if (args.length === 0) {
+            this.game.chat.addMessage('§cUsage: /fly <on|off>');
+            return;
+        }
+        
+        const mode = args[0].toLowerCase();
+        
+        if (mode === 'on') {
+            this.game.player.flyMode = true;
+            this.game.chat.addMessage('§aFly mode enabled!');
+            this.game.chat.addMessage('§7Space to fly up, Shift to fly down');
+        } else if (mode === 'off') {
+            this.game.player.flyMode = false;
+            this.game.chat.addMessage('§cFly mode disabled!');
+        } else {
+            this.game.chat.addMessage('§cUsage: /fly <on|off>');
+        }
+    }
+    
+    // Command: /time <day|night>
+    cmdTime(args) {
+        if (args.length === 0) {
+            this.game.chat.addMessage('§cUsage: /time <day|night>');
+            return;
+        }
+        
+        const timeMode = args[0].toLowerCase();
+        
+        if (timeMode === 'day') {
+            // Setze Zeit auf Mittag (0.5 = 50% des Zyklus)
+            this.game.renderer.dayTime = 0.5;
+            this.game.chat.addMessage('§aTime set to day!');
+        } else if (timeMode === 'night') {
+            // Setze Zeit auf Mitternacht (0.0 = 0% des Zyklus)
+            this.game.renderer.dayTime = 0.0;
+            this.game.chat.addMessage('§aTime set to night!');
+        } else {
+            this.game.chat.addMessage('§cUsage: /time <day|night>');
+        }
     }
 }

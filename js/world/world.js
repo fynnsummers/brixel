@@ -170,7 +170,10 @@ class World {
             for (let y = 0; y < CONFIG.WORLD_HEIGHT; y++) {
                 let blockType = null;
                 
-                if (y === surfaceHeight) {
+                // Bedrock an der untersten Schicht (Y = CONFIG.WORLD_HEIGHT - 1)
+                if (y === CONFIG.WORLD_HEIGHT - 1) {
+                    blockType = 'bedrock';
+                } else if (y === surfaceHeight) {
                     blockType = 'grass';
                 } else if (y === surfaceHeight + 1) {
                     blockType = 'dirt-grass';
@@ -203,10 +206,37 @@ class World {
                     }
                     
                     // Iron Ore - tiefer unten (ab Y > surfaceHeight + 30), sehr selten (0.8%)
-                    if (y > surfaceHeight + 30) {
+                    if (y > surfaceHeight + 30 && blockType === 'stone') {
                         const ironSeed = blockX * 2000 + y * 200;
                         if (seededRandom(ironSeed) < 0.008 && !oreVeins.has(veinKey)) {
                             blockType = 'ironore';
+                            oreVeins.add(veinKey);
+                        }
+                    }
+                    
+                    // Diamond Ore - sehr tief (ab Y > surfaceHeight + 50), extrem selten (0.3%)
+                    if (y > surfaceHeight + 50 && blockType === 'stone') {
+                        const diamondSeed = blockX * 3000 + y * 300;
+                        if (seededRandom(diamondSeed) < 0.003 && !oreVeins.has(veinKey)) {
+                            blockType = 'diamondore';
+                            oreVeins.add(veinKey);
+                        }
+                    }
+                    
+                    // Emerald Ore - am tiefsten (ab Y > surfaceHeight + 70), ultra selten (0.15%)
+                    if (y > surfaceHeight + 70 && blockType === 'stone') {
+                        const emeraldSeed = blockX * 4000 + y * 400;
+                        if (seededRandom(emeraldSeed) < 0.0015 && !oreVeins.has(veinKey)) {
+                            blockType = 'emeraldore';
+                            oreVeins.add(veinKey);
+                        }
+                    }
+                    
+                    // Emerald Ore - am tiefsten (ab Y > surfaceHeight + 70), ultra selten (0.15%)
+                    if (y > surfaceHeight + 70 && blockType === 'stone') {
+                        const emeraldSeed = blockX * 4000 + y * 400;
+                        if (seededRandom(emeraldSeed) < 0.0015 && !oreVeins.has(veinKey)) {
+                            blockType = 'emeraldore';
                             oreVeins.add(veinKey);
                         }
                     }

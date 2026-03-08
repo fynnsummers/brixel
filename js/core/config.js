@@ -25,8 +25,8 @@ const CONFIG = {
     // Physik
     GRAVITY: 0.5,
     JUMP_FORCE: -8,  // Langsamer Sprung
-    MOVE_SPEED: 3,
-    SPRINT_SPEED: 5,  // Sprint-Geschwindigkeit (Shift)
+    MOVE_SPEED: 2,
+    SPRINT_SPEED: 4,  // Sprint-Geschwindigkeit (Shift)
     MOVE_ACCELERATION: 0.3,
     FRICTION: 0.85,
     
@@ -64,7 +64,10 @@ const CONFIG = {
         'dirt': 800,        // 0.8 Sekunden
         'stone': 3000,       // 3 Sekunden
         'coalore': 4000,     // 4 Sekunden
-        'ironore': 5000      // 5 Sekunden
+        'ironore': 5000,     // 5 Sekunden
+        'diamondore': 6000,  // 6 Sekunden
+        'emeraldore': 7000,  // 7 Sekunden
+        'bedrock': Infinity  // Unzerstörbar
     },
     
     // Tool-Anzeige beim Player
@@ -132,11 +135,36 @@ const CONFIG = {
         FONT_SIZE: 12,
         LINE_HEIGHT: 14,
         PADDING_X: 12,      // Horizontaler Abstand vom Rand
-        PADDING_Y: 10,      // Vertikaler Abstand vom Rand
-        MIN_WIDTH: 168,      // Minimale Breite
-        MIN_HEIGHT: 55,     // Minimale Höhe
+        PADDING_Y: 12,      // Vertikaler Abstand vom Rand
+        MIN_WIDTH: 286,     // Minimale Breite
+        MIN_HEIGHT: 110,     // Minimale Höhe
         OFFSET_X: 15,       // Abstand vom Cursor
-        OFFSET_Y: 15
+        OFFSET_Y: 15,
+        CENTER_VERTICALLY: true  // Text vertikal zentrieren
+    },
+    
+    // Health Bar
+    HEALTH_BAR: {
+        X: 20,              // X-Position (von links)
+        Y: 20,              // Y-Position (von oben)
+        SCALE: 1.4           // Skalierung der Health-Bar
+    },
+    
+    // Tag-Nacht-Zyklus
+    DAY_NIGHT_CYCLE: {
+        ENABLED: true,
+        CYCLE_DURATION: 1060000,  // 4 Minuten (240000ms) für einen vollen Tag
+        NIGHT_DARKNESS: 0.1,    // Wie dunkel die Nacht ist (0 = komplett dunkel, 1 = keine Dunkelheit) - höher = heller
+        SUNRISE_TIME: 0.2,       // Sonnenaufgang bei 20% des Zyklus
+        SUNSET_TIME: 0.7         // Sonnenuntergang bei 70% des Zyklus
+    },
+    
+    // Load Screen Einstellungen
+    LOAD_SCREEN: {
+        CYCLE_DURATION: 30000,   // 30 Sekunden für einen vollen Tag-Nacht-Zyklus
+        ZOOM: 1.05,               // Zoom-Faktor (2.5x)
+        CAMERA_OFFSET_Y: 1.5,   // Kamera-Offset in Blöcken (negativ = nach oben)
+        NIGHT_DARKNESS: 0.65     // Dunkelheit bei Nacht (gleich wie im Hauptspiel)
     }
 };
 

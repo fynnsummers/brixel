@@ -35,6 +35,11 @@ class BlockBreaker {
     }
     
     startBreaking(blockX, blockY, blockType, heldItem) {
+        // Bedrock ist unzerstörbar - keine Animation
+        if (blockType === 'bedrock') {
+            return;
+        }
+        
         // Neuer Block oder gleicher Block
         if (!this.breakingBlock || 
             this.breakingBlock.x !== blockX || 
@@ -63,6 +68,18 @@ class BlockBreaker {
         // Prüfe ob Block existiert
         const block = world.getBlockAt(mouse.worldX, mouse.worldY, true);
         if (!block) {
+            this.stopBreaking();
+            return null;
+        }
+        
+        // Bedrock ist unzerstörbar - keine Breaking-Animation
+        if (block === 'bedrock') {
+            this.stopBreaking();
+            return null;
+        }
+        
+        // Bedrock ist unzerstörbar
+        if (block === 'bedrock') {
             this.stopBreaking();
             return null;
         }

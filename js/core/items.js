@@ -50,9 +50,41 @@ const ITEMS = {
         stackable: true,
         maxStack: 64
     },
-    'ironore': {
-        id: 6,
-        name: 'Iron Ore',
+    'bedrock': {
+        id: 7,
+        name: 'Bedrock',
+        category: 'blocks',
+        subcategory: 'special',
+        stackable: true,
+        maxStack: 64
+    },
+    'diamondore': {
+        id: 8,
+        name: 'Diamond Ore',
+        category: 'blocks',
+        subcategory: 'ore',
+        stackable: true,
+        maxStack: 64
+    },
+    'emeraldore': {
+        id: 9,
+        name: 'Emerald Ore',
+        category: 'blocks',
+        subcategory: 'ore',
+        stackable: true,
+        maxStack: 64
+    },
+    'diamondore': {
+        id: 8,
+        name: 'Diamond Ore',
+        category: 'blocks',
+        subcategory: 'ore',
+        stackable: true,
+        maxStack: 64
+    },
+    'emeraldore': {
+        id: 9,
+        name: 'Emerald Ore',
         category: 'blocks',
         subcategory: 'ore',
         stackable: true,
