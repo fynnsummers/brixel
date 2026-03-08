@@ -1,0 +1,837 @@
+// Rendering-System
+
+class Renderer {
+    constructor(canvas) {
+        this.canvas = canvas;
+        this.ctx = canvas.getContext('2d');
+        this.textures = {};
+        this.highlightAlpha = 0;
+        this.targetHighlightAlpha = 0;
+    }
+    
+    async loadTextures() {
+        const textureNames = ['stone', 'dirt', 'dirt-grass', 'grass', 'coalore', 'ironore', 'player', 'cursor', 'blocked-cursor', 'inventory', 'chat', 'chat-inactive', 'tooltip'];
+        
+        // Tools hinzufügen
+        const toolTypes = ['axe', 'pickaxe', 'shovel', 'sword'];
+        const toolMaterials = ['wood', 'stone', 'iron', 'diamond', 'emerald'];
+        
+        for (let type of toolTypes) {
+            for (let material of toolMaterials) {
+                textureNames.push(`${type}-${material}`);
+            }
+        }
+        
+        for (let i = 1; i <= 6; i++) {
+            textureNames.push(`h${i}`);
+        }
+        
+        for (let i = 0; i <= 4; i++) {
+            textureNames.push(`l${i}`);
+        }
+        
+        const promises = textureNames.map(name => {
+            let path;
+            if (name === 'player' || name === 'cursor' || name === 'blocked-cursor') {
+                path = `assets/${name}.png`;
+            } else if (name === 'inventory' || name === 'chat' || name === 'chat-inactive' || name === 'tooltip') {
+                path = `assets/ui/${name}.png`;
+            } else if ((name.startsWith('h') || name.startsWith('l')) && name.length === 2) {
+                path = `assets/ui/${name}.png`;
+            } else if (name.includes('-') && (name.startsWith('axe') || name.startsWith('pickaxe') || name.startsWith('shovel') || name.startsWith('sword'))) {
+                path = `assets/tools/${name}.png`;
+            } else {
+                path = `assets/textures/${name}.png`;
+            }
+            return loadImage(name, path);
+        });
+        
+        const results = await Promise.all(promises);
+        results.forEach(({ name, img }) => {
+            if (img) {
+                this.textures[name] = img;
+            }
+        });
+        console.log('Loaded textures:', Object.keys(this.textures));
+    }
+    
+    updateHighlight(world, mouse, inventoryOpen) {
+        if (inventoryOpen) {
+            // Kein Highlight wenn Inventar offen
+            this.targetHighlightAlpha = 0;
+            this.highlightAlpha = 0;
+            return;
+        }
+        
+        const hoveredBlock = world.getBlockAt(mouse.worldX, mouse.worldY, true);
+        this.targetHighlightAlpha = hoveredBlock ? CONFIG.HIGHLIGHT_ALPHA : 0;
+        this.highlightAlpha += (this.targetHighlightAlpha - this.highlightAlpha) * CONFIG.HIGHLIGHT_SMOOTH;
+    }
+    
+    render(world, player, camera, mouse, blockBreaker, particleSystem, hotbar, health, itemDrops, inventory, input, chat) {
+        this.ctx.fillStyle = '#87CEEB';
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        
+        this.ctx.save();
+        this.ctx.scale(camera.zoom, camera.zoom);
+        
+        const startChunk = Math.floor((camera.x - CONFIG.BLOCK_SIZE) / (CONFIG.CHUNK_WIDTH * CONFIG.BLOCK_SIZE));
+        const endChunk = Math.ceil((camera.x + this.canvas.width / camera.zoom + CONFIG.BLOCK_SIZE) / (CONFIG.CHUNK_WIDTH * CONFIG.BLOCK_SIZE));
+        
+        // Berechne sichtbare Y-Range mit 10 Blöcke Buffer
+        const bufferBlocks = 10;
+        const minVisibleY = Math.max(0, Math.floor(camera.y / CONFIG.BLOCK_SIZE) - bufferBlocks);
+        const maxVisibleY = Math.min(CONFIG.WORLD_HEIGHT - 1, Math.ceil((camera.y + this.canvas.height / camera.zoom) / CONFIG.BLOCK_SIZE) + bufferBlocks);
+        
+        world.cleanupChunks(startChunk, endChunk);
+        
+        for (let chunkX = startChunk; chunkX <= endChunk; chunkX++) {
+            const chunk = world.generateChunk(chunkX);
+            
+            for (let x = 0; x < CONFIG.CHUNK_WIDTH; x++) {
+                // Nur sichtbare Y-Range rendern
+                for (let y = minVisibleY; y <= maxVisibleY; y++) {
+                    const blockType = chunk[x][y];
+                    if (!blockType) continue;
+                    
+                    const worldX = (chunkX * CONFIG.CHUNK_WIDTH + x) * CONFIG.BLOCK_SIZE;
+                    const worldY = y * CONFIG.BLOCK_SIZE;
+                    const blockX = chunkX * CONFIG.CHUNK_WIDTH + x;
+                    const blockY = y;
+                    
+                    if (world.isBlockBroken(blockX, blockY)) continue;
+                    
+                    const screenX = worldX - camera.x;
+                    const screenY = worldY - camera.y;
+                    
+                    if (screenX > -CONFIG.BLOCK_SIZE && screenX < this.canvas.width / camera.zoom &&
+                        screenY > -CONFIG.BLOCK_SIZE && screenY < this.canvas.height / camera.zoom) {
+                        
+                        const animProgress = world.getAnimationProgress(blockX, blockY);
+                        
+                        if (animProgress !== null) {
+                            this.ctx.globalAlpha = 1 - animProgress;
+                            this.ctx.drawImage(this.textures[blockType], screenX, screenY, CONFIG.BLOCK_SIZE, CONFIG.BLOCK_SIZE);
+                            this.ctx.globalAlpha = 1;
+                        } else {
+                            this.ctx.drawImage(this.textures[blockType], screenX, screenY, CONFIG.BLOCK_SIZE, CONFIG.BLOCK_SIZE);
+                        }
+                    }
+                }
+            }
+        }
+        
+        const playerScreenX = player.x - camera.x;
+        const playerScreenY = player.y - camera.y;
+        
+        this.ctx.save();
+        this.ctx.translate(playerScreenX + player.width / 2, playerScreenY + player.height / 2);
+        this.ctx.scale(player.scale, 1);
+        this.ctx.drawImage(this.textures['player'], -player.width / 2, -player.height / 2, player.width, player.height);
+        this.ctx.restore();
+        
+        const selectedSlot = hotbar.getSelectedSlot();
+        const slot = inventory.getSlot(selectedSlot);
+        if (slot.item && slot.count > 0) {
+            const itemTexture = this.textures[slot.item];
+            if (itemTexture) {
+                const item = ItemRegistry.getByName(slot.item);
+                
+                // Prüfe ob es ein Tool ist
+                const isTool = item && item.category === 'tools';
+                
+                if (isTool) {
+                    // Tool-Anzeige mit CONFIG und Player-Scale
+                    const toolSize = CONFIG.TOOL_DISPLAY.SIZE;
+                    // Offset wird mit player.scale multipliziert für Flip
+                    const toolOffsetX = CONFIG.TOOL_DISPLAY.OFFSET_X * player.scale;
+                    const toolX = playerScreenX + player.width / 2 + toolOffsetX - toolSize / 2;
+                    const toolY = playerScreenY + player.height / 2 + CONFIG.TOOL_DISPLAY.OFFSET_Y - toolSize / 2;
+                    
+                    this.ctx.save();
+                    this.ctx.translate(toolX + toolSize / 2, toolY + toolSize / 2);
+                    // Rotation und Scale kombinieren
+                    this.ctx.scale(player.scale, 1);
+                    this.ctx.rotate(CONFIG.TOOL_DISPLAY.ROTATION * Math.PI / 180);
+                    this.ctx.drawImage(itemTexture, -toolSize / 2, -toolSize / 2, toolSize, toolSize);
+                    this.ctx.restore();
+                } else {
+                    // Block-Anzeige (wie vorher)
+                    const itemSize = 16;
+                    const itemX = playerScreenX + player.width / 2 - itemSize / 2;
+                    const itemY = playerScreenY - itemSize - 8;
+                    this.ctx.drawImage(itemTexture, itemX, itemY, itemSize, itemSize);
+                }
+            }
+        }
+        
+        particleSystem.render(this.ctx, camera, this.textures);
+        itemDrops.render(this.ctx, camera, this.textures);
+        
+        if (this.highlightAlpha > 0.01 && !mouse.isDown && !input.inventoryOpen) {
+            const highlightWorldX = mouse.blockX * CONFIG.BLOCK_SIZE;
+            const highlightWorldY = mouse.blockY * CONFIG.BLOCK_SIZE;
+            const highlightScreenX = highlightWorldX - camera.x;
+            const highlightScreenY = highlightWorldY - camera.y;
+            const alpha = mouse.inRange ? this.highlightAlpha : this.highlightAlpha * 0.3;
+            
+            if (mouse.flashRed > 0 && !mouse.inRange) {
+                this.ctx.fillStyle = `rgba(255, 100, 100, ${alpha * 0.8})`;
+            } else {
+                this.ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+            }
+            this.ctx.fillRect(highlightScreenX, highlightScreenY, CONFIG.BLOCK_SIZE, CONFIG.BLOCK_SIZE);
+        }
+        
+        if (mouse.inRange && !input.inventoryOpen) {
+            const breakingBlock = blockBreaker.getBreakingBlock();
+            if (breakingBlock) {
+                const frameIndex = blockBreaker.getCurrentFrame();
+                if (frameIndex !== null) {
+                    const breakWorldX = breakingBlock.x * CONFIG.BLOCK_SIZE;
+                    const breakWorldY = breakingBlock.y * CONFIG.BLOCK_SIZE;
+                    const breakScreenX = breakWorldX - camera.x;
+                    const breakScreenY = breakWorldY - camera.y;
+                    const frameTexture = blockBreaker.getFrameTexture(frameIndex);
+                    this.ctx.drawImage(frameTexture, breakScreenX, breakScreenY, CONFIG.BLOCK_SIZE, CONFIG.BLOCK_SIZE);
+                }
+            }
+        }
+        
+        this.ctx.restore();
+        
+        // Inventar-Overlay (wenn E gedrückt) - VOR Hotbar und Cursor
+        let hoveredSlotIndex = -1; // Track hovered slot für Tooltip
+        
+        if (input.inventoryOpen) {
+            // Dunkler Hintergrund
+            this.ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+            this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+            
+            // Inventar-Bild mit gleicher Breite wie Hotbar
+            if (this.textures['inventory']) {
+                const hotbarScale = 1.5;
+                const hotbarWidth = this.textures[hotbar.getHotbarTextureName()].width * hotbarScale;
+                
+                // Berechne Scale basierend auf Hotbar-Breite
+                const invScale = hotbarWidth / this.textures['inventory'].width;
+                const invWidth = this.textures['inventory'].width * invScale;
+                const invHeight = this.textures['inventory'].height * invScale;
+                const invX = (this.canvas.width - invWidth) / 2;
+                
+                // Position über der Hotbar
+                const hotbarHeight = this.textures[hotbar.getHotbarTextureName()].height * hotbarScale;
+                const hotbarY = this.canvas.height - hotbarHeight - 20;
+                const invY = hotbarY - invHeight - 20;
+                
+                this.ctx.drawImage(this.textures['inventory'], invX, invY, invWidth, invHeight);
+                
+                // Prüfe welcher Inventar-Slot gehovered wird
+                hoveredSlotIndex = input.getInventorySlotAtMouse(invX, invY, invWidth, invHeight, this.textures['inventory']);
+                
+                // Zeichne Items in Inventar-Slots (nur Slots 6-47, nicht Hotbar 0-5)
+                const grid = CONFIG.INVENTORY_GRID;
+                const itemSize = 28 * invScale;
+                
+                // Nur Inventar-Slots zeichnen (6-47), nicht Hotbar (0-5)
+                for (let row = 0; row < grid.ROWS; row++) {
+                    for (let col = 0; col < grid.COLS; col++) {
+                        const slotIndex = 6 + (row * grid.COLS + col); // Start bei Slot 6
+                        const slot = inventory.getSlot(slotIndex);
+                        
+                        const slotOriginalX = grid.START_X + grid.SPACING_X * col;
+                        const slotOriginalY = grid.START_Y + grid.SPACING_Y * row;
+                        const slotScreenX = invX + slotOriginalX * invScale;
+                        const slotScreenY = invY + slotOriginalY * invScale;
+                        
+                        // Debug: Rote Border um Slots
+                        if (grid.DEBUG) {
+                            this.ctx.strokeStyle = '#FF0000';
+                            this.ctx.lineWidth = 2;
+                            this.ctx.strokeRect(slotScreenX, slotScreenY, grid.SLOT_SIZE * invScale, grid.SLOT_SIZE * invScale);
+                        }
+                        
+                        // Skip wenn Slot gerade gezogen wird
+                        if (inventory.draggedSlot === slotIndex) continue;
+                        
+                        if (slot.item && slot.count > 0) {
+                            const slotCenterX = slotScreenX + (grid.SLOT_SIZE * invScale) / 2;
+                            const slotCenterY = slotScreenY + (grid.SLOT_SIZE * invScale) / 2;
+                            const itemX = slotCenterX - itemSize / 2;
+                            const itemY = slotCenterY - itemSize / 2;
+                            
+                            const texture = this.textures[slot.item];
+                            if (texture) {
+                                this.ctx.drawImage(texture, itemX, itemY, itemSize, itemSize);
+                            }
+                            
+                            // Zeichne Count
+                            if (slot.count > 1) {
+                                this.ctx.save();
+                                this.ctx.font = '10px "Press Start 2P", monospace';
+                                this.ctx.fillStyle = '#FFFFFF';
+                                this.ctx.strokeStyle = '#000000';
+                                this.ctx.lineWidth = 2;
+                                this.ctx.textAlign = 'right';
+                                this.ctx.textBaseline = 'bottom';
+                                const countText = slot.count.toString();
+                                const countX = slotScreenX + grid.SLOT_SIZE * invScale - 2;
+                                const countY = slotScreenY + grid.SLOT_SIZE * invScale - 2;
+                                this.ctx.strokeText(countText, countX, countY);
+                                this.ctx.fillText(countText, countX, countY);
+                                this.ctx.restore();
+                            }
+                        }
+                    }
+                }
+                
+                // Zeichne gezogenes Item am Cursor
+                if (inventory.draggedItem) {
+                    const texture = this.textures[inventory.draggedItem.item];
+                    if (texture) {
+                        const dragItemSize = itemSize;
+                        const dragX = mouse.x - dragItemSize / 2;
+                        const dragY = mouse.y - dragItemSize / 2;
+                        
+                        this.ctx.globalAlpha = 0.8;
+                        this.ctx.drawImage(texture, dragX, dragY, dragItemSize, dragItemSize);
+                        this.ctx.globalAlpha = 1;
+                        
+                        // Count
+                        if (inventory.draggedItem.count > 1) {
+                            this.ctx.save();
+                            this.ctx.font = '10px "Press Start 2P", monospace';
+                            this.ctx.fillStyle = '#FFFFFF';
+                            this.ctx.strokeStyle = '#000000';
+                            this.ctx.lineWidth = 2;
+                            this.ctx.textAlign = 'right';
+                            this.ctx.textBaseline = 'bottom';
+                            const countText = inventory.draggedItem.count.toString();
+                            this.ctx.strokeText(countText, dragX + dragItemSize, dragY + dragItemSize);
+                            this.ctx.fillText(countText, dragX + dragItemSize, dragY + dragItemSize);
+                            this.ctx.restore();
+                        }
+                    }
+                }
+            }
+        }
+        
+        const healthTextureName = health.getHealthTextureName();
+        if (this.textures[healthTextureName]) {
+            const healthScale = 2;
+            const healthWidth = this.textures[healthTextureName].width * healthScale;
+            const healthHeight = this.textures[healthTextureName].height * healthScale;
+            this.ctx.drawImage(this.textures[healthTextureName], 20, 20, healthWidth, healthHeight);
+        }
+        
+        const blockX = Math.floor(player.x / CONFIG.BLOCK_SIZE);
+        const blockY = Math.floor(player.y / CONFIG.BLOCK_SIZE);
+        const coordElement = document.getElementById('coordinates');
+        if (coordElement) {
+            coordElement.textContent = `X: ${blockX}  Y: ${blockY}`;
+        }
+        
+        const hotbarTextureName = hotbar.getHotbarTextureName();
+        if (this.textures[hotbarTextureName]) {
+            const scale = 1.5;
+            const hotbarWidth = this.textures[hotbarTextureName].width * scale;
+            const hotbarHeight = this.textures[hotbarTextureName].height * scale;
+            const hotbarX = (this.canvas.width - hotbarWidth) / 2;
+            const hotbarY = this.canvas.height - hotbarHeight - 20;
+            
+            this.ctx.drawImage(this.textures[hotbarTextureName], hotbarX, hotbarY, hotbarWidth, hotbarHeight);
+            
+            // Prüfe welcher Hotbar-Slot gehovered wird (nur wenn Inventar offen)
+            if (input.inventoryOpen && hoveredSlotIndex === -1) {
+                hoveredSlotIndex = input.getHotbarSlotAtMouse(hotbarX, hotbarY, hotbarWidth, hotbarHeight);
+            }
+            
+            const slotWidth = 40;
+            const slotHeight = 40;
+            const slotStartX = 18;
+            const slotStartY = 3;
+            const slotSpacing = 45.5;
+            const itemSize = 28 * scale;
+            
+            for (let i = 0; i < 6; i++) {
+                const slot = inventory.getSlot(i);
+                if (slot.item && slot.count > 0) {
+                    const slotOriginalX = slotStartX + slotSpacing * i;
+                    const slotOriginalY = slotStartY;
+                    const slotScreenX = hotbarX + slotOriginalX * scale;
+                    const slotScreenY = hotbarY + slotOriginalY * scale;
+                    const slotCenterX = slotScreenX + (slotWidth * scale) / 2;
+                    const slotCenterY = slotScreenY + (slotHeight * scale) / 2;
+                    const itemX = slotCenterX - itemSize / 2;
+                    const itemY = slotCenterY - itemSize / 2;
+                    
+                    const texture = this.textures[slot.item];
+                    if (texture) {
+                        this.ctx.drawImage(texture, itemX, itemY, itemSize, itemSize);
+                    }
+                    
+                    if (slot.count > 1) {
+                        this.ctx.save();
+                        this.ctx.font = '10px "Press Start 2P", monospace';
+                        this.ctx.fillStyle = '#FFFFFF';
+                        this.ctx.strokeStyle = '#000000';
+                        this.ctx.lineWidth = 2;
+                        this.ctx.textAlign = 'right';
+                        this.ctx.textBaseline = 'bottom';
+                        const countText = slot.count.toString();
+                        const countX = slotScreenX + slotWidth * scale - 2;
+                        const countY = slotScreenY + slotHeight * scale - 2;
+                        this.ctx.strokeText(countText, countX, countY);
+                        this.ctx.fillText(countText, countX, countY);
+                        this.ctx.restore();
+                    }
+                }
+            }
+        }
+        
+        // Chat Rendering
+        const shouldShowChat = input.chatOpen || chat.fadeAlpha > 0;
+        
+        if (shouldShowChat) {
+            const chatConfig = CONFIG.CHAT;
+            const chatX = this.canvas.width - chatConfig.WIDTH - chatConfig.OFFSET_X;
+            const chatY = chatConfig.OFFSET_Y;
+            
+            if (input.chatOpen) {
+                // Chat ist offen - zeige alles
+                // Dunkler Hintergrund
+                this.ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+                this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+                
+                // Chat-Bild (aktiv)
+                if (this.textures['chat']) {
+                    this.ctx.drawImage(this.textures['chat'], chatX, chatY, chatConfig.WIDTH, chatConfig.HEIGHT);
+                }
+            } else {
+                // Chat ist geschlossen - Fade-Out
+                // Kein schwarzer Hintergrund
+                
+                // Chat-Bild (inaktiv) mit Fade
+                if (this.textures['chat-inactive']) {
+                    this.ctx.save();
+                    this.ctx.globalAlpha = chat.fadeAlpha;
+                    this.ctx.drawImage(this.textures['chat-inactive'], chatX, chatY, chatConfig.WIDTH, chatConfig.HEIGHT);
+                    this.ctx.restore();
+                }
+            }
+            
+            // Logger-Bereich
+            const loggerX = chatX + chatConfig.LOGGER.X;
+            const loggerY = chatY + chatConfig.LOGGER.Y;
+            const loggerWidth = chatConfig.LOGGER.WIDTH;
+            const loggerHeight = chatConfig.LOGGER.HEIGHT;
+            
+            // Input-Bereich
+            const inputX = chatX + chatConfig.INPUT.X;
+            const inputY = chatY + chatConfig.INPUT.Y;
+            const inputWidth = chatConfig.INPUT.WIDTH;
+            const inputHeight = chatConfig.INPUT.HEIGHT;
+            
+            // Debug: Rote Border um Logger-Bereich
+            if (chatConfig.DEBUG) {
+                this.ctx.strokeStyle = '#FF0000';
+                this.ctx.lineWidth = 2;
+                this.ctx.strokeRect(loggerX, loggerY, loggerWidth, loggerHeight);
+                
+                // Debug: Rote Border um Input-Bereich
+                this.ctx.strokeRect(inputX, inputY, inputWidth, inputHeight);
+            }
+            
+            // Zeichne Nachrichten mit Clipping und Fade
+            this.ctx.save();
+            
+            // Clipping-Bereich für Logger
+            this.ctx.beginPath();
+            this.ctx.rect(loggerX, loggerY, loggerWidth, loggerHeight);
+            this.ctx.clip();
+            
+            // Fade-Alpha anwenden wenn Chat geschlossen
+            if (!input.chatOpen) {
+                this.ctx.globalAlpha = chat.fadeAlpha;
+            }
+            
+            this.ctx.font = `${chatConfig.LOGGER.FONT_SIZE}px "Press Start 2P", monospace`;
+            this.ctx.textBaseline = 'top';
+            
+            const visibleMessages = chat.getVisibleMessages();
+            let currentY = loggerY + chatConfig.LOGGER.PADDING;
+            
+            // Render Nachrichten mit Farbunterstützung
+            for (let i = 0; i < visibleMessages.length; i++) {
+                const msg = visibleMessages[i];
+                const maxWidth = loggerWidth - chatConfig.LOGGER.PADDING * 2;
+                
+                // Parse Farbcodes
+                const colorSegments = ChatColors.parseText(msg.text);
+                
+                let currentX = loggerX + chatConfig.LOGGER.PADDING;
+                
+                // Zeichne jeden farbigen Segment
+                for (let seg of colorSegments) {
+                    this.ctx.fillStyle = seg.color;
+                    
+                    // Word wrap für diesen Segment
+                    const words = seg.text.split(' ');
+                    
+                    for (let j = 0; j < words.length; j++) {
+                        const word = words[j] + (j < words.length - 1 ? ' ' : '');
+                        const wordWidth = this.ctx.measureText(word).width;
+                        
+                        // Prüfe ob Wort in aktuelle Zeile passt
+                        if (currentX + wordWidth > loggerX + maxWidth + chatConfig.LOGGER.PADDING) {
+                            // Neue Zeile
+                            currentY += chatConfig.LOGGER.LINE_HEIGHT;
+                            currentX = loggerX + chatConfig.LOGGER.PADDING;
+                            
+                            if (currentY + chatConfig.LOGGER.LINE_HEIGHT > loggerY + loggerHeight) {
+                                break;
+                            }
+                        }
+                        
+                        this.ctx.fillText(word, currentX, currentY);
+                        currentX += wordWidth;
+                    }
+                }
+                
+                // Nächste Nachricht in neuer Zeile
+                currentY += chatConfig.LOGGER.LINE_HEIGHT;
+                if (currentY + chatConfig.LOGGER.LINE_HEIGHT > loggerY + loggerHeight) break;
+            }
+            
+            this.ctx.restore();
+            
+            // Scrollbar zeichnen (wenn nötig)
+            const maxVisibleLines = Math.floor(loggerHeight / chatConfig.LOGGER.LINE_HEIGHT);
+            if (chat.messages.length > maxVisibleLines) {
+                const scrollbarX = loggerX + loggerWidth - chatConfig.SCROLLBAR.WIDTH - chatConfig.SCROLLBAR.PADDING;
+                const scrollbarY = loggerY + chatConfig.SCROLLBAR.PADDING;
+                const scrollbarHeight = loggerHeight - chatConfig.SCROLLBAR.PADDING * 2;
+                
+                // Scrollbar Hintergrund
+                this.ctx.fillStyle = chatConfig.SCROLLBAR.COLOR;
+                this.ctx.fillRect(scrollbarX, scrollbarY, chatConfig.SCROLLBAR.WIDTH, scrollbarHeight);
+                
+                // Scrollbar Handle
+                const handleHeight = Math.max(20, (maxVisibleLines / chat.messages.length) * scrollbarHeight);
+                const maxScroll = chat.messages.length - maxVisibleLines;
+                const handleY = scrollbarY + ((maxScroll - chat.scrollOffset) / maxScroll) * (scrollbarHeight - handleHeight);
+                
+                this.ctx.fillStyle = chatConfig.SCROLLBAR.HANDLE_COLOR;
+                this.ctx.fillRect(scrollbarX, handleY, chatConfig.SCROLLBAR.WIDTH, handleHeight);
+            }
+            
+            // Input-Text mit Clipping und Cursor-Position (nur wenn Chat offen)
+            if (input.chatOpen) {
+                this.ctx.save();
+                
+                // Clipping-Bereich für Input
+                this.ctx.beginPath();
+                this.ctx.rect(inputX, inputY, inputWidth, inputHeight);
+                this.ctx.clip();
+                
+                this.ctx.font = `${chatConfig.INPUT.FONT_SIZE}px "Press Start 2P", monospace`;
+                this.ctx.textBaseline = 'top';
+                
+                // Vertikale Zentrierung mit LINE_HEIGHT
+                const textY = inputY + (inputHeight - chatConfig.INPUT.LINE_HEIGHT) / 2;
+                
+                // Färbe Command-Input
+                const colorSegments = ChatColors.colorizeCommand(chat.inputText);
+                
+                // Berechne Text-Breite bis Cursor
+                let textBeforeWidth = 0;
+                let charCount = 0;
+                for (let seg of colorSegments) {
+                    if (charCount + seg.text.length >= chat.cursorPosition) {
+                        // Cursor ist in diesem Segment
+                        const charsInSegment = chat.cursorPosition - charCount;
+                        textBeforeWidth += this.ctx.measureText(seg.text.slice(0, charsInSegment)).width;
+                        break;
+                    } else {
+                        textBeforeWidth += this.ctx.measureText(seg.text).width;
+                        charCount += seg.text.length;
+                    }
+                }
+                
+                // Berechne gesamte Text-Breite
+                let fullTextWidth = 0;
+                for (let seg of colorSegments) {
+                    fullTextWidth += this.ctx.measureText(seg.text).width;
+                }
+                
+                const maxInputWidth = inputWidth - chatConfig.INPUT.PADDING * 2;
+                
+                // Wenn Text zu breit, scrolle so dass Cursor sichtbar ist
+                let textX = inputX + chatConfig.INPUT.PADDING;
+                if (textBeforeWidth > maxInputWidth) {
+                    textX = inputX + inputWidth - chatConfig.INPUT.PADDING - textBeforeWidth - 10;
+                } else if (fullTextWidth > maxInputWidth) {
+                    // Text ist zu lang, aber Cursor ist am Anfang/Mitte
+                    textX = inputX + chatConfig.INPUT.PADDING;
+                }
+                
+                // Zeichne farbige Segmente
+                let currentX = textX;
+                for (let seg of colorSegments) {
+                    this.ctx.fillStyle = seg.color;
+                    this.ctx.fillText(seg.text, currentX, textY);
+                    currentX += this.ctx.measureText(seg.text).width;
+                }
+                
+                // Blinkender Cursor an der richtigen Position
+                if (chat.cursorBlink < 500) {
+                    const cursorX = textX + textBeforeWidth;
+                    this.ctx.fillStyle = '#FFFFFF';
+                    this.ctx.fillRect(cursorX, textY, 2, chatConfig.INPUT.LINE_HEIGHT);
+                }
+                
+                this.ctx.restore();
+            }
+        }
+        
+        if (this.textures['cursor']) {
+            const cursorX = mouse.x - 12 + mouse.shakeOffset.x;
+            const cursorY = mouse.y - 12 + mouse.shakeOffset.y;
+            let cursorTexture = this.textures['cursor'];
+            
+            // Cursor-Logik nur wenn Inventar geschlossen ist
+            if (!input.inventoryOpen) {
+                if (mouse.flashRed > 0) {
+                    cursorTexture = this.textures['blocked-cursor'];
+                } else if (mouse.hasBlockInSlot) {
+                    cursorTexture = this.textures['cursor'];
+                } else if (!mouse.inRange) {
+                    cursorTexture = this.textures['blocked-cursor'];
+                }
+            }
+            
+            if (cursorTexture) {
+                this.ctx.globalAlpha = input.inventoryOpen ? 1 : mouse.cursorAlpha;
+                this.ctx.drawImage(cursorTexture, cursorX, cursorY, 24, 24);
+                this.ctx.globalAlpha = 1;
+            }
+        }
+        
+        // Tooltip (wenn Inventar offen und über Item)
+        if (input.inventoryOpen) {
+            const hoveredSlotData = input.getHoveredSlot(inventory, hotbar, this);
+            if (hoveredSlotData.slotIndex !== -1) {
+                const slot = inventory.getSlot(hoveredSlotData.slotIndex);
+                if (slot.item && slot.count > 0) {
+                    this.renderTooltip(slot.item, hoveredSlotData);
+                }
+            }
+        }
+        
+        // Debug-Overlay (F3)
+        if (input.debugMode) {
+            this.renderDebugOverlay(world, player, camera, mouse, hotbar, inventory, health, input);
+        }
+    }
+    
+    renderTooltip(itemName, slotData) {
+        const item = ItemRegistry.getByName(itemName);
+        if (!item || !this.textures['tooltip']) return;
+        
+        const config = CONFIG.TOOLTIP;
+        
+        this.ctx.save();
+        this.ctx.font = `${config.FONT_SIZE}px "Press Start 2P", monospace`;
+        
+        // Tooltip-Inhalt vorbereiten
+        const lines = [item.name];
+        
+        // Füge Stats hinzu wenn Tool
+        if (item.category === 'tools') {
+            if (item.damage) {
+                lines.push(`Damage: ${item.damage}`);
+            }
+            if (item.miningSpeed) {
+                lines.push(`Speed: ${item.miningSpeed}x`);
+            }
+        }
+        
+        // Berechne Tooltip-Größe basierend auf Text
+        let maxWidth = 0;
+        for (let line of lines) {
+            const width = this.ctx.measureText(line).width;
+            if (width > maxWidth) maxWidth = width;
+        }
+        
+        // Berechne finale Größe mit Padding und Minimum
+        const tooltipWidth = Math.max(config.MIN_WIDTH, maxWidth + config.PADDING_X * 2);
+        const tooltipHeight = Math.max(config.MIN_HEIGHT, lines.length * config.LINE_HEIGHT + config.PADDING_Y * 2);
+        
+        // Position: Mittig über dem Slot
+        const slotCenterX = slotData.x + slotData.width / 2;
+        let tooltipX = slotCenterX - tooltipWidth / 2;
+        let tooltipY = slotData.y - tooltipHeight - 10; // 10px Abstand über dem Slot
+        
+        // Verhindere dass Tooltip aus dem Canvas läuft
+        if (tooltipX < 5) {
+            tooltipX = 5;
+        }
+        if (tooltipX + tooltipWidth > this.canvas.width - 5) {
+            tooltipX = this.canvas.width - tooltipWidth - 5;
+        }
+        if (tooltipY < 5) {
+            tooltipY = slotData.y + slotData.height + 10; // Unter dem Slot wenn kein Platz oben
+        }
+        
+        // Zeichne Tooltip-Bild (gestreckt auf berechnete Größe)
+        this.ctx.drawImage(this.textures['tooltip'], tooltipX, tooltipY, tooltipWidth, tooltipHeight);
+        
+        // Text mit Schatten und zentriert
+        this.ctx.textAlign = 'center';
+        this.ctx.textBaseline = 'top';
+        
+        for (let i = 0; i < lines.length; i++) {
+            const textX = tooltipX + tooltipWidth / 2;
+            const textY = tooltipY + config.PADDING_Y + i * config.LINE_HEIGHT;
+            
+            // Weicher Schatten
+            this.ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+            this.ctx.shadowBlur = 4;
+            this.ctx.shadowOffsetX = 2;
+            this.ctx.shadowOffsetY = 2;
+            
+            // Erste Zeile (Name) in Weiß, Rest in Grau
+            if (i === 0) {
+                this.ctx.fillStyle = '#FFFFFF';
+            } else {
+                this.ctx.fillStyle = '#AAAAAA';
+            }
+            
+            this.ctx.fillText(lines[i], textX, textY);
+        }
+        
+        this.ctx.restore();
+    }
+    
+    renderDebugOverlay(world, player, camera, mouse, hotbar, inventory, health, input) {
+            // Chunk-Grenzen zeichnen (ROT) - bis ganz nach unten
+            this.ctx.save();
+            this.ctx.scale(camera.zoom, camera.zoom);
+
+            const startChunk = Math.floor((camera.x - CONFIG.BLOCK_SIZE) / (CONFIG.CHUNK_WIDTH * CONFIG.BLOCK_SIZE));
+            const endChunk = Math.ceil((camera.x + this.canvas.width / camera.zoom + CONFIG.BLOCK_SIZE) / (CONFIG.CHUNK_WIDTH * CONFIG.BLOCK_SIZE));
+
+            this.ctx.strokeStyle = 'rgba(255, 0, 0, 0.8)';
+            this.ctx.lineWidth = 3;
+
+            for (let chunkX = startChunk; chunkX <= endChunk; chunkX++) {
+                const worldX = chunkX * CONFIG.CHUNK_WIDTH * CONFIG.BLOCK_SIZE;
+                const screenX = worldX - camera.x;
+
+                this.ctx.beginPath();
+                this.ctx.moveTo(screenX, 0 - camera.y);
+                this.ctx.lineTo(screenX, CONFIG.WORLD_HEIGHT * CONFIG.BLOCK_SIZE - camera.y);
+                this.ctx.stroke();
+            }
+
+            // Block-Raster (DUNKELBLAU)
+            this.ctx.strokeStyle = 'rgba(0, 50, 150, 0.4)';
+            this.ctx.lineWidth = 1;
+
+            const minVisibleY = Math.max(0, Math.floor(camera.y / CONFIG.BLOCK_SIZE));
+            const maxVisibleY = Math.min(CONFIG.WORLD_HEIGHT - 1, Math.ceil((camera.y + this.canvas.height / camera.zoom) / CONFIG.BLOCK_SIZE));
+
+            for (let chunkX = startChunk; chunkX <= endChunk; chunkX++) {
+                for (let x = 0; x < CONFIG.CHUNK_WIDTH; x++) {
+                    const worldX = (chunkX * CONFIG.CHUNK_WIDTH + x) * CONFIG.BLOCK_SIZE;
+                    const screenX = worldX - camera.x;
+
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(screenX, minVisibleY * CONFIG.BLOCK_SIZE - camera.y);
+                    this.ctx.lineTo(screenX, maxVisibleY * CONFIG.BLOCK_SIZE - camera.y);
+                    this.ctx.stroke();
+                }
+            }
+
+            for (let y = minVisibleY; y <= maxVisibleY; y++) {
+                const worldY = y * CONFIG.BLOCK_SIZE;
+                const screenY = worldY - camera.y;
+
+                this.ctx.beginPath();
+                this.ctx.moveTo(startChunk * CONFIG.CHUNK_WIDTH * CONFIG.BLOCK_SIZE - camera.x, screenY);
+                this.ctx.lineTo((endChunk + 1) * CONFIG.CHUNK_WIDTH * CONFIG.BLOCK_SIZE - camera.x, screenY);
+                this.ctx.stroke();
+            }
+
+            this.ctx.restore();
+
+            // Debug-Text LINKS unter Health Bar - nur Variablen farbig
+            this.ctx.save();
+
+            const selectedSlot = hotbar.getSelectedSlot();
+            const slot = inventory.getSlot(selectedSlot);
+            const itemInHand = slot.item || 'None';
+            const itemCount = slot.count || 0;
+            const speed = Math.sqrt(player.vx * player.vx + player.vy * player.vy).toFixed(2);
+            const mouseBlockX = Math.floor(mouse.worldX / CONFIG.BLOCK_SIZE);
+            const mouseBlockY = Math.floor(mouse.worldY / CONFIG.BLOCK_SIZE);
+
+            const startX = 30;
+            let currentY = 90;
+
+            this.ctx.font = '14px "Press Start 2P", monospace';
+            this.ctx.strokeStyle = '#000000be';
+            this.ctx.lineWidth = 3;
+            
+            // Hilfsfunktion: Text mit farbigen Variablen
+            const drawLine = (label, value, valueColor) => {
+                // Label in Weiß
+                this.ctx.fillStyle = '#FFFFFF';
+                this.ctx.strokeText(label, startX, currentY);
+                this.ctx.fillText(label, startX, currentY);
+                
+                // Wert in Farbe
+                const labelWidth = this.ctx.measureText(label).width;
+                this.ctx.fillStyle = valueColor;
+                this.ctx.strokeText(value, startX + labelWidth, currentY);
+                this.ctx.fillText(value, startX + labelWidth, currentY);
+                
+                currentY += 16;
+            };
+
+            // Block in Hand
+            drawLine('Block in Hand: ', itemInHand, itemInHand !== 'None' ? '#00FF00' : '#FFFFFF');
+            drawLine('Count: ', itemCount.toString(), '#FFFFFF');
+            drawLine('Item ID: ', slot.item ? ItemRegistry.getByName(slot.item).id.toString() : 'N/A', '#AAAAAA');
+            currentY += 4; // Extra Abstand
+            
+            // Health
+            const healthValue = `${health ? health.currentHealth : 'undefined'} / ${health ? health.maxHealth : 'undefined'}`;
+            drawLine('Health: ', healthValue, '#FF0000');
+            drawLine('Speed: ', speed, parseFloat(speed) > 0 ? '#FFFF00' : '#FFFFFF');
+            drawLine('Velocity: ', `${player.vx.toFixed(2)} / ${player.vy.toFixed(2)}`, '#FFFFFF');
+            drawLine('On Ground: ', player.onGround.toString(), player.onGround ? '#00FF00' : '#FF0000');
+            drawLine('Facing: ', player.facingRight ? 'Right' : 'Left', '#FFFFFF');
+            currentY += 4; // Extra Abstand
+            
+            // Camera
+            drawLine('Camera: ', `${camera.x.toFixed(2)} / ${camera.y.toFixed(2)}`, '#AAAAAA');
+            drawLine('Zoom: ', `${camera.zoom.toFixed(2)}x (Level ${camera.zoomLevel})`, '#00FFFF');
+            currentY += 4; // Extra Abstand
+            
+            // Mouse
+            drawLine('Mouse: ', `${mouse.worldX.toFixed(2)} / ${mouse.worldY.toFixed(2)}`, '#AAAAAA');
+            drawLine('Block: ', `${mouseBlockX} / ${mouseBlockY}`, '#AAAAAA');
+            drawLine('In Range: ', mouse.inRange.toString(), mouse.inRange ? '#00FF00' : '#FF0000');
+            currentY += 4; // Extra Abstand
+            
+            // System
+            drawLine('Loaded Chunks: ', world.chunks.size.toString(), '#FFFF00');
+            const fps = Math.round(1000 / (Date.now() - (this.lastFrameTime || Date.now()) || 16));
+            drawLine('FPS: ', fps.toString(), fps >= 60 ? '#00FF00' : (fps >= 30 ? '#FFFF00' : '#FF0000'));
+
+            this.ctx.restore();
+            this.lastFrameTime = Date.now();
+        }
+
+}

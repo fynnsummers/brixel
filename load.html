@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Block World - Start</title>
+    <link rel="stylesheet" href="css/load.css">
+</head>
+<body>
+    <div id="start-screen">
+        <canvas id="bg-canvas"></canvas>
+        <div class="overlay"></div>
+        <div class="content">
+            <img id="title-logo" src="assets/title.png" alt="Block World">
+            <button id="new-game-btn" class="pixel-button">New Game</button>
+            <p class="version">v<span id="version-start"></span></p>
+        </div>
+    </div>
+
+    <div id="loading-screen" class="hidden">
+        <canvas id="loading-canvas"></canvas>
+        <div class="overlay"></div>
+        <div class="loading-content">
+            <h2>Generating World...</h2>
+            <div class="progress-bar">
+                <div id="progress-fill" class="progress-fill"></div>
+            </div>
+            <p id="progress-text">0%</p>
+            <p class="version">v<span id="version-loading"></span></p>
+        </div>
+    </div>
+
+    <audio id="bg-music" loop volume="0.01">
+        <source src="assets/homemc.mp3" type="audio/mpeg">
+    </audio>
+
+    <script src="js/core/config.js"></script>
+    <script src="js/core/utils.js"></script>
+    <script src="js/world/world.js"></script>
+    <script src="js/screens/load.js"></script>
+</body>
+</html>
