@@ -234,8 +234,8 @@ block-world/
 ### Clone Repository
 
 ```bash
-git clone https://github.com/yourusername/block-world.git
-cd block-world
+git clone https://github.com/fynnsummers/brixels.git
+cd brixels
 ```
 
 ### Start Local Server
@@ -395,3 +395,4 @@ https://github.com/fynnsummers/brixels
 Made by **Fynn Summers, Kai, Finn**
 
 </p>
+
