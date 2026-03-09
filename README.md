@@ -373,7 +373,7 @@ MIT License
 
 # <img src="https://img.icons8.com/fluency/26/handshake.png"/> Acknowledgments
 
-- Inspired by **Minecraft**
+- Inspired by **Minecraft** and Terraria
 - Built with **Vanilla JavaScript**
 - Pixel-art textures
 - Procedural generation algorithms
@@ -395,5 +395,6 @@ https://github.com/fynnsummers/brixel
 Made by **Fynn Summers, Kai, Finn**
 
 </p>
+
 
 
