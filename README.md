@@ -234,8 +234,8 @@ block-world/
 ### Clone Repository
 
 ```bash
-git clone https://github.com/fynnsummers/brixels.git
-cd brixels
+git clone https://github.com/fynnsummers/brixel.git
+cd brixel
 ```
 
 ### Start Local Server
@@ -385,7 +385,7 @@ MIT License
 Project Link
 
 ```
-https://github.com/fynnsummers/brixels
+https://github.com/fynnsummers/brixel
 ```
 
 ---
@@ -395,4 +395,5 @@ https://github.com/fynnsummers/brixels
 Made by **Fynn Summers, Kai, Finn**
 
 </p>
+
 
