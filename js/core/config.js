@@ -163,7 +163,7 @@ const CONFIG = {
     DAY_NIGHT_CYCLE: {
         ENABLED: true,
         CYCLE_DURATION: 1060000,  // 4 Minuten (240000ms) für einen vollen Tag
-        NIGHT_DARKNESS: 0.1,    // Wie dunkel die Nacht ist (0 = komplett dunkel, 1 = keine Dunkelheit) - höher = heller
+        NIGHT_DARKNESS: 0.3,    // Wie dunkel die Nacht ist (0 = komplett dunkel, 1 = keine Dunkelheit) - höher = heller
         SUNRISE_TIME: 0.2,       // Sonnenaufgang bei 20% des Zyklus
         SUNSET_TIME: 0.7         // Sonnenuntergang bei 70% des Zyklus
     },
