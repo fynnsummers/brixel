@@ -13,7 +13,7 @@ class Renderer {
     }
     
     async loadTextures() {
-        const textureNames = ['stone', 'dirt', 'dirt-grass', 'grass', 'coalore', 'ironore', 'bedrock', 'diamondore', 'emeraldore', 'cursor', 'blocked-cursor', 'inventory', 'chat', 'chat-inactive', 'tooltip'];
+        const textureNames = ['stone', 'dirt', 'dirt-grass', 'grass', 'coalore', 'ironore', 'goldore', 'bedrock', 'diamondore', 'emeraldore', 'cursor', 'blocked-cursor', 'inventory', 'chat', 'chat-inactive', 'tooltip'];
         
         // Player-Animationen hinzufügen
         for (let i = 1; i <= 2; i++) {
@@ -25,7 +25,7 @@ class Renderer {
         
         // Tools hinzufügen
         const toolTypes = ['axe', 'pickaxe', 'shovel', 'sword'];
-        const toolMaterials = ['wood', 'stone', 'iron', 'diamond', 'emerald'];
+        const toolMaterials = ['wood', 'stone', 'iron', 'gold', 'diamond', 'emerald'];
         
         for (let type of toolTypes) {
             for (let material of toolMaterials) {
@@ -182,12 +182,21 @@ class Renderer {
                     this.ctx.drawImage(itemTexture, -toolSize / 2, -toolSize / 2, toolSize, toolSize);
                     this.ctx.restore();
                 } else {
-                    // Block-Anzeige
-                    const itemSize = 16;
-                    const itemX = playerScreenX + player.width / 2 - itemSize / 2;
-                    const itemY = playerScreenY - itemSize - 8;
+                    // Block-Anzeige mit CONFIG und Player-Scale
+                    const blockSize = CONFIG.BLOCK_DISPLAY.SIZE;
+                    // Offset wird mit player.scale multipliziert für Flip
+                    const blockOffsetX = CONFIG.BLOCK_DISPLAY.OFFSET_X * player.scale;
+                    const blockX = playerScreenX + player.width / 2 + blockOffsetX - blockSize / 2;
+                    const blockY = playerScreenY + player.height / 2 + CONFIG.BLOCK_DISPLAY.OFFSET_Y - blockSize / 2;
                     
-                    this.ctx.drawImage(itemTexture, itemX, itemY, itemSize, itemSize);
+                    this.ctx.save();
+                    this.ctx.translate(blockX + blockSize / 2, blockY + blockSize / 2);
+                    // Rotation und Scale kombinieren
+                    this.ctx.scale(player.scale, 1);
+                    this.ctx.rotate(CONFIG.BLOCK_DISPLAY.ROTATION * Math.PI / 180);
+                    
+                    this.ctx.drawImage(itemTexture, -blockSize / 2, -blockSize / 2, blockSize, blockSize);
+                    this.ctx.restore();
                 }
             }
         }
@@ -809,6 +818,176 @@ class Renderer {
 
             this.ctx.restore();
 
+            // Player-Hitbox zeichnen (mit Kamera-Zoom)
+            this.ctx.save();
+            this.ctx.scale(camera.zoom, camera.zoom);
+            
+            const playerScreenX = player.x - camera.x;
+            const playerScreenY = player.y - camera.y;
+            const centerX = playerScreenX + player.width / 2;
+            const centerY = playerScreenY + player.height / 2;
+            
+            // Range Distance als äußerer Raster-Rahmen (gelb, nur Außenränder)
+            const playerCenterX = player.x + player.width / 2;
+            const playerCenterY = player.y + player.height / 2;
+            const rangeInBlocks = CONFIG.BREAK_RANGE; // 4 Blöcke
+            
+            // Berechne Player-Block-Position
+            const playerBlockX = Math.floor(playerCenterX / CONFIG.BLOCK_SIZE);
+            const playerBlockY = Math.floor(playerCenterY / CONFIG.BLOCK_SIZE);
+            
+            // Finde alle Blöcke in Reichweite
+            const blocksInRange = new Set();
+            for (let offsetX = -rangeInBlocks; offsetX <= rangeInBlocks; offsetX++) {
+                for (let offsetY = -rangeInBlocks; offsetY <= rangeInBlocks; offsetY++) {
+                    const blockX = playerBlockX + offsetX;
+                    const blockY = playerBlockY + offsetY;
+                    
+                    // Berechne Distanz vom Player-Zentrum zu Block-Zentrum
+                    const blockCenterX = blockX * CONFIG.BLOCK_SIZE + CONFIG.BLOCK_SIZE / 2;
+                    const blockCenterY = blockY * CONFIG.BLOCK_SIZE + CONFIG.BLOCK_SIZE / 2;
+                    const distance = Math.sqrt(
+                        Math.pow(blockCenterX - playerCenterX, 2) + 
+                        Math.pow(blockCenterY - playerCenterY, 2)
+                    );
+                    const distanceInBlocks = distance / CONFIG.BLOCK_SIZE;
+                    
+                    // Nur Blöcke in Reichweite sammeln
+                    if (distanceInBlocks <= rangeInBlocks) {
+                        blocksInRange.add(`${blockX},${blockY}`);
+                    }
+                }
+            }
+            
+            // Erst die Füllung zeichnen (20% gelb)
+            this.ctx.fillStyle = 'rgba(255, 255, 0, 0.2)';
+            for (const blockKey of blocksInRange) {
+                const [blockX, blockY] = blockKey.split(',').map(Number);
+                const screenX = blockX * CONFIG.BLOCK_SIZE - camera.x;
+                const screenY = blockY * CONFIG.BLOCK_SIZE - camera.y;
+                this.ctx.fillRect(screenX, screenY, CONFIG.BLOCK_SIZE, CONFIG.BLOCK_SIZE);
+            }
+            
+            // Dann die äußeren Ränder zeichnen
+            this.ctx.strokeStyle = 'rgba(255, 255, 0, 0.8)'; // Gelber Border
+            this.ctx.lineWidth = 2;
+            
+            for (const blockKey of blocksInRange) {
+                const [blockX, blockY] = blockKey.split(',').map(Number);
+                const screenX = blockX * CONFIG.BLOCK_SIZE - camera.x;
+                const screenY = blockY * CONFIG.BLOCK_SIZE - camera.y;
+                
+                // Prüfe welche Seiten Außenränder sind (keine Nachbarn in Range)
+                const hasTop = !blocksInRange.has(`${blockX},${blockY - 1}`);
+                const hasBottom = !blocksInRange.has(`${blockX},${blockY + 1}`);
+                const hasLeft = !blocksInRange.has(`${blockX - 1},${blockY}`);
+                const hasRight = !blocksInRange.has(`${blockX + 1},${blockY}`);
+                
+                // Zeichne nur die Außenränder
+                this.ctx.beginPath();
+                if (hasTop) {
+                    this.ctx.moveTo(screenX, screenY);
+                    this.ctx.lineTo(screenX + CONFIG.BLOCK_SIZE, screenY);
+                }
+                if (hasBottom) {
+                    this.ctx.moveTo(screenX, screenY + CONFIG.BLOCK_SIZE);
+                    this.ctx.lineTo(screenX + CONFIG.BLOCK_SIZE, screenY + CONFIG.BLOCK_SIZE);
+                }
+                if (hasLeft) {
+                    this.ctx.moveTo(screenX, screenY);
+                    this.ctx.lineTo(screenX, screenY + CONFIG.BLOCK_SIZE);
+                }
+                if (hasRight) {
+                    this.ctx.moveTo(screenX + CONFIG.BLOCK_SIZE, screenY);
+                    this.ctx.lineTo(screenX + CONFIG.BLOCK_SIZE, screenY + CONFIG.BLOCK_SIZE);
+                }
+                this.ctx.stroke();
+            }
+            
+            // Koordinaten-Linien durch Player-Zentrum
+            const coordPlayerScreenX = player.x - camera.x;
+            const coordPlayerScreenY = player.y - camera.y;
+            const coordCenterX = coordPlayerScreenX + player.width / 2;
+            const coordCenterY = coordPlayerScreenY + player.height / 2;
+            
+            // Vertikale Linie (X-Koordinate) in Rot
+            this.ctx.strokeStyle = 'rgba(255, 0, 0, 0.7)';
+            this.ctx.lineWidth = 1;
+            this.ctx.beginPath();
+            this.ctx.moveTo(coordCenterX, 0);
+            this.ctx.lineTo(coordCenterX, this.canvas.height / camera.zoom);
+            this.ctx.stroke();
+            
+            // Horizontale Linie (Y-Koordinate) in Blau
+            this.ctx.strokeStyle = 'rgba(0, 0, 255, 0.7)';
+            this.ctx.lineWidth = 1;
+            this.ctx.beginPath();
+            this.ctx.moveTo(0, coordCenterY);
+            this.ctx.lineTo(this.canvas.width / camera.zoom, coordCenterY);
+            this.ctx.stroke();
+            
+            // Koordinaten-Text
+            const blockX = Math.floor(playerCenterX / CONFIG.BLOCK_SIZE);
+            const blockY = Math.floor(playerCenterY / CONFIG.BLOCK_SIZE);
+            
+            this.ctx.font = '8px "Press Start 2P", monospace';
+            this.ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+            this.ctx.strokeStyle = 'rgba(0, 0, 0, 0.8)';
+            this.ctx.lineWidth = 1;
+            this.ctx.textAlign = 'center';
+            
+            // X-Koordinate Text (rot, an vertikaler Linie)
+            this.ctx.fillStyle = 'rgba(255, 0, 0, 0.9)';
+            this.ctx.strokeText(`X:${blockX}`, coordCenterX, 15);
+            this.ctx.fillText(`X:${blockX}`, coordCenterX, 15);
+            
+            // Y-Koordinate Text (blau, an horizontaler Linie)
+            this.ctx.fillStyle = 'rgba(0, 0, 255, 0.9)';
+            this.ctx.save();
+            this.ctx.translate(15, coordCenterY);
+            this.ctx.rotate(-Math.PI / 2);
+            this.ctx.strokeText(`Y:${blockY}`, 0, 0);
+            this.ctx.fillText(`Y:${blockY}`, 0, 0);
+            this.ctx.restore();
+            
+            // Hitbox-Umriss (schwarzer Strich, 80% Sichtbarkeit, dünner)
+            this.ctx.strokeStyle = 'rgba(0, 0, 0, 0.8)';
+            this.ctx.lineWidth = 1; // Dünner: 1px statt 2px
+            this.ctx.strokeRect(playerScreenX, playerScreenY, player.width, player.height);
+            
+            // Player-Zentrum markieren (schwarzer Punkt, 80% Sichtbarkeit)
+            this.ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+            this.ctx.fillRect(centerX - 1, centerY - 1, 2, 2);
+            
+            // Blickrichtung als waagerechter Strich (schwarz, 80% Sichtbarkeit, dünner)
+            this.ctx.strokeStyle = 'rgba(0, 0, 0, 0.8)';
+            this.ctx.lineWidth = 1; // Dünner: 1px statt 2px
+            this.ctx.beginPath();
+            const directionLength = 25; // Länger für bessere Sichtbarkeit
+            const directionY = playerScreenY + 12; // Etwas tiefer: 12px statt 8px
+            const directionStartX = player.facingRight ? centerX + 5 : centerX - 5; // Startet außerhalb der Box
+            const directionEndX = player.facingRight ? directionStartX + directionLength : directionStartX - directionLength;
+            this.ctx.moveTo(directionStartX, directionY);
+            this.ctx.lineTo(directionEndX, directionY);
+            this.ctx.stroke();
+            
+            // Aktueller Animations-Frame als Text (viel kleiner)
+            const animFrame = player.getAnimationFrame();
+            this.ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+            this.ctx.strokeStyle = 'rgba(0, 0, 0, 0.8)';
+            this.ctx.lineWidth = 1;
+            this.ctx.font = '6px "Press Start 2P", monospace'; // Viel kleiner: 6px statt 10px
+            this.ctx.textAlign = 'center';
+            this.ctx.textBaseline = 'bottom';
+            
+            // Text über dem Player
+            const textX = centerX;
+            const textY = playerScreenY - 8; // Etwas weiter oben
+            this.ctx.strokeText(animFrame, textX, textY);
+            this.ctx.fillText(animFrame, textX, textY);
+            
+            this.ctx.restore();
+
             // Debug-Text LINKS unter Health Bar - nur Variablen farbig
             this.ctx.save();
 
@@ -822,7 +1001,7 @@ class Renderer {
 
             // Position unter der Health Bar
             const healthConfig = CONFIG.HEALTH_BAR;
-            const startX = healthConfig.X + 10;
+            const debugStartX = healthConfig.X + 10;
             let currentY = healthConfig.Y + 70; // 70px unter Health Bar Start
 
             this.ctx.font = '14px "Press Start 2P", monospace';
@@ -833,14 +1012,14 @@ class Renderer {
             const drawLine = (label, value, valueColor) => {
                 // Label in Weiß
                 this.ctx.fillStyle = '#FFFFFF';
-                this.ctx.strokeText(label, startX, currentY);
-                this.ctx.fillText(label, startX, currentY);
+                this.ctx.strokeText(label, debugStartX, currentY);
+                this.ctx.fillText(label, debugStartX, currentY);
                 
                 // Wert in Farbe
                 const labelWidth = this.ctx.measureText(label).width;
                 this.ctx.fillStyle = valueColor;
-                this.ctx.strokeText(value, startX + labelWidth, currentY);
-                this.ctx.fillText(value, startX + labelWidth, currentY);
+                this.ctx.strokeText(value, debugStartX + labelWidth, currentY);
+                this.ctx.fillText(value, debugStartX + labelWidth, currentY);
                 
                 currentY += 16;
             };
@@ -873,6 +1052,30 @@ class Renderer {
             
             // System
             drawLine('Loaded Chunks: ', world.chunks.size.toString(), '#FFFF00');
+            
+            // Memory-Statistiken (wenn verfügbar)
+            if (performance.memory) {
+                const usedMB = Math.round(performance.memory.usedJSHeapSize / 1024 / 1024);
+                const totalMB = Math.round(performance.memory.totalJSHeapSize / 1024 / 1024);
+                const limitMB = Math.round(performance.memory.jsHeapSizeLimit / 1024 / 1024);
+                
+                // Berechne Prozentsatz der Nutzung
+                const usagePercent = Math.round((usedMB / limitMB) * 100);
+                
+                // Farbe basierend auf Speicherverbrauch
+                let memoryColor = '#00FF00'; // Grün für niedrig
+                if (usagePercent > 70) {
+                    memoryColor = '#FF0000'; // Rot für hoch
+                } else if (usagePercent > 50) {
+                    memoryColor = '#FFFF00'; // Gelb für mittel
+                }
+                
+                drawLine('Memory: ', `${usedMB}MB / ${limitMB}MB (${usagePercent}%)`, memoryColor);
+                drawLine('Heap Total: ', `${totalMB}MB`, '#AAAAAA');
+            } else {
+                drawLine('Memory: ', 'Not Available', '#888888');
+            }
+            
             const fps = Math.round(1000 / (Date.now() - (this.lastFrameTime || Date.now()) || 16));
             drawLine('FPS: ', fps.toString(), fps >= 60 ? '#00FF00' : (fps >= 30 ? '#FFFF00' : '#FF0000'));
 

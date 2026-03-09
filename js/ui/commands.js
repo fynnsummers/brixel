@@ -148,13 +148,13 @@ class CommandHandler {
         // Alle Tools geordnet nach Material und Typ
         const toolOrder = [
             // Pickaxes
-            'pickaxe-wood', 'pickaxe-stone', 'pickaxe-iron', 'pickaxe-diamond', 'pickaxe-emerald',
+            'pickaxe-wood', 'pickaxe-stone', 'pickaxe-iron', 'pickaxe-gold', 'pickaxe-diamond', 'pickaxe-emerald',
             // Axes
-            'axe-wood', 'axe-stone', 'axe-iron', 'axe-diamond', 'axe-emerald',
+            'axe-wood', 'axe-stone', 'axe-iron', 'axe-gold', 'axe-diamond', 'axe-emerald',
             // Shovels
-            'shovel-wood', 'shovel-stone', 'shovel-iron', 'shovel-diamond', 'shovel-emerald',
+            'shovel-wood', 'shovel-stone', 'shovel-iron', 'shovel-gold', 'shovel-diamond', 'shovel-emerald',
             // Swords
-            'sword-wood', 'sword-stone', 'sword-iron', 'sword-diamond', 'sword-emerald'
+            'sword-wood', 'sword-stone', 'sword-iron', 'sword-gold', 'sword-diamond', 'sword-emerald'
         ];
         
         let addedCount = 0;

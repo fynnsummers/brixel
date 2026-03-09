@@ -185,19 +185,26 @@ class World {
                     const blockX = chunkX * CONFIG.CHUNK_WIDTH + x;
                     const veinKey = `${blockX},${y}`;
                     
-                    // Coal Ore - seltener (1.5% statt 5%), aber in Adern von 2-4 Blöcken
+                    // Coal Ore - weniger häufig (1% statt 1.5%), in kleinen Adern von 3-5 Blöcken
                     const coalSeed = blockX * 1000 + y * 100;
-                    if (seededRandom(coalSeed) < 0.015 && !oreVeins.has(veinKey)) {
-                        // Erstelle Coal-Ader
-                        const veinSize = Math.floor(seededRandom(coalSeed + 1) * 3) + 2; // 2-4 Blöcke
+                    if (seededRandom(coalSeed) < 0.01 && !oreVeins.has(veinKey)) {
+                        // Erstelle Coal-Ader (3-5 Blöcke in zufälligen Richtungen)
+                        const veinSize = Math.floor(seededRandom(coalSeed + 1) * 3) + 3; // 3-5 Blöcke
                         blockType = 'coalore';
                         oreVeins.add(veinKey);
                         
-                        // Füge benachbarte Blöcke zur Ader hinzu (max 3 Blöcke in eine Richtung)
+                        // Füge benachbarte Blöcke in verschiedene Richtungen hinzu
                         let added = 1;
-                        for (let i = 1; i < veinSize && added < 3; i++) {
-                            const direction = seededRandom(coalSeed + i + 10) > 0.5 ? 1 : -1;
-                            const neighborKey = `${blockX + direction * i},${y}`;
+                        const directions = [
+                            {x: 1, y: 0}, {x: -1, y: 0}, // horizontal
+                            {x: 0, y: 1}, {x: 0, y: -1}, // vertikal
+                            {x: 1, y: 1}, {x: -1, y: -1} // diagonal
+                        ];
+                        
+                        for (let i = 1; i < veinSize && added < 4; i++) {
+                            const dirIndex = Math.floor(seededRandom(coalSeed + i + 10) * directions.length);
+                            const dir = directions[dirIndex];
+                            const neighborKey = `${blockX + dir.x * i},${y + dir.y * i}`;
                             if (!oreVeins.has(neighborKey)) {
                                 oreVeins.add(neighborKey);
                                 added++;
@@ -205,11 +212,20 @@ class World {
                         }
                     }
                     
-                    // Iron Ore - tiefer unten (ab Y > surfaceHeight + 30), sehr selten (0.8%)
+                    // Iron Ore - tiefer unten (ab Y > surfaceHeight + 30), einzeln (0.8%)
                     if (y > surfaceHeight + 30 && blockType === 'stone') {
                         const ironSeed = blockX * 2000 + y * 200;
                         if (seededRandom(ironSeed) < 0.008 && !oreVeins.has(veinKey)) {
                             blockType = 'ironore';
+                            oreVeins.add(veinKey);
+                        }
+                    }
+                    
+                    // Gold Ore - gleiche Tiefe wie Iron (ab Y > surfaceHeight + 30), einzeln (0.8%)
+                    if (y > surfaceHeight + 30 && blockType === 'stone') {
+                        const goldSeed = blockX * 2500 + y * 250;
+                        if (seededRandom(goldSeed) < 0.008 && !oreVeins.has(veinKey)) {
+                            blockType = 'goldore';
                             oreVeins.add(veinKey);
                         }
                     }
@@ -232,29 +248,23 @@ class World {
                         }
                     }
                     
-                    // Emerald Ore - am tiefsten (ab Y > surfaceHeight + 70), ultra selten (0.15%)
-                    if (y > surfaceHeight + 70 && blockType === 'stone') {
-                        const emeraldSeed = blockX * 4000 + y * 400;
-                        if (seededRandom(emeraldSeed) < 0.0015 && !oreVeins.has(veinKey)) {
-                            blockType = 'emeraldore';
-                            oreVeins.add(veinKey);
-                        }
-                    }
-                    
-                    // Prüfe ob dieser Block Teil einer Ader ist
+                    // Prüfe ob dieser Block Teil einer Coal-Ader ist
                     if (oreVeins.has(veinKey) && blockType === 'stone') {
-                        // Finde heraus welches Ore hier sein sollte
-                        for (let checkX = x - 3; checkX <= x + 3; checkX++) {
-                            if (checkX < 0 || checkX >= CONFIG.CHUNK_WIDTH) continue;
-                            const checkBlockX = chunkX * CONFIG.CHUNK_WIDTH + checkX;
-                            const checkKey = `${checkBlockX},${y}`;
-                            if (oreVeins.has(checkKey)) {
-                                const checkSeed = checkBlockX * 1000 + y * 100;
-                                if (seededRandom(checkSeed) < 0.015) {
-                                    blockType = 'coalore';
-                                    break;
+                        // Finde heraus welches Ore hier sein sollte (nur für Coal-Adern)
+                        for (let checkX = x - 2; checkX <= x + 2; checkX++) {
+                            for (let checkY = y - 2; checkY <= y + 2; checkY++) {
+                                if (checkX < 0 || checkX >= CONFIG.CHUNK_WIDTH) continue;
+                                const checkBlockX = chunkX * CONFIG.CHUNK_WIDTH + checkX;
+                                const checkKey = `${checkBlockX},${checkY}`;
+                                if (oreVeins.has(checkKey)) {
+                                    const checkSeed = checkBlockX * 1000 + checkY * 100;
+                                    if (seededRandom(checkSeed) < 0.01) {
+                                        blockType = 'coalore';
+                                        break;
+                                    }
                                 }
                             }
+                            if (blockType === 'coalore') break;
                         }
                     }
                 }

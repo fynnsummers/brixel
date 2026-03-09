@@ -57,6 +57,13 @@ class BlockPlacer {
         // Prüfe ob Item im Slot vorhanden
         if (!slot.item || slot.count <= 0) return null;
         
+        // Prüfe ob es ein Tool ist - Tools können nicht platziert werden
+        const item = ItemRegistry.getByName(slot.item);
+        if (item && item.category === 'tools') {
+            input.triggerShake();
+            return null;
+        }
+        
         const targetX = mouse.blockX;
         const targetY = mouse.blockY;
         

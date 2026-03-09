@@ -14,7 +14,7 @@ const CONFIG = {
     TERRAIN: {
         BASE_FREQUENCY: 0.02,      // Sehr sanfte, lange Hügel
         DETAIL_FREQUENCY: 0.08,    // Sanfte Details
-        MOUNTAIN_FREQUENCY: 0.005, // Sehr langsame Berge
+        MOUNTAIN_FREQUENCY: 0.02, // Sehr langsame Berge
         BASE_AMPLITUDE: 3,         // Größere Hügel
         DETAIL_AMPLITUDE: 0.8,     // Weniger Details
         MOUNTAIN_AMPLITUDE: 2.5,   // Sanfte Berge
@@ -65,6 +65,7 @@ const CONFIG = {
         'stone': 3000,       // 3 Sekunden
         'coalore': 4000,     // 4 Sekunden
         'ironore': 5000,     // 5 Sekunden
+        'goldore': 4500,     // 4.5 Sekunden (zwischen Coal und Iron)
         'diamondore': 6000,  // 6 Sekunden
         'emeraldore': 7000,  // 7 Sekunden
         'bedrock': Infinity  // Unzerstörbar
@@ -76,6 +77,14 @@ const CONFIG = {
         OFFSET_Y: 4,        // Vertikal vom Player-Center (negativ = über dem Player)
         SIZE: 24,            // Größe des Tool-Icons
         ROTATION: 0          // Rotation in Grad (0 = keine Rotation)
+    },
+    
+    // Block-Anzeige beim Player
+    BLOCK_DISPLAY: {
+        OFFSET_X: 16,        // Horizontal vom Player-Center (gleich wie Tools)
+        OFFSET_Y: 4,         // Vertikal vom Player-Center (gleich wie Tools)
+        SIZE: 12,            // Größe des Block-Icons (gleich wie Tools)
+        ROTATION: 15          // Rotation in Grad (0 = keine Rotation)
     },
     
     // Inventar-Grid

@@ -74,17 +74,9 @@ const ITEMS = {
         stackable: true,
         maxStack: 64
     },
-    'diamondore': {
-        id: 8,
-        name: 'Diamond Ore',
-        category: 'blocks',
-        subcategory: 'ore',
-        stackable: true,
-        maxStack: 64
-    },
-    'emeraldore': {
-        id: 9,
-        name: 'Emerald Ore',
+    'goldore': {
+        id: 10,
+        name: 'Gold Ore',
         category: 'blocks',
         subcategory: 'ore',
         stackable: true,
@@ -121,6 +113,16 @@ const ITEMS = {
         maxStack: 1,
         damage: 5,
         miningSpeed: 6.0
+    },
+    'axe-gold': {
+        id: 105,
+        name: 'Gold Axe',
+        category: 'tools',
+        subcategory: 'axe',
+        stackable: false,
+        maxStack: 1,
+        damage: 3,
+        miningSpeed: 8.0
     },
     'axe-diamond': {
         id: 103,
@@ -174,6 +176,16 @@ const ITEMS = {
         damage: 4,
         miningSpeed: 6.0
     },
+    'pickaxe-gold': {
+        id: 115,
+        name: 'Gold Pickaxe',
+        category: 'tools',
+        subcategory: 'pickaxe',
+        stackable: false,
+        maxStack: 1,
+        damage: 2,
+        miningSpeed: 8.0
+    },
     'pickaxe-diamond': {
         id: 113,
         name: 'Diamond Pickaxe',
@@ -226,6 +238,16 @@ const ITEMS = {
         damage: 4,
         miningSpeed: 6.0
     },
+    'shovel-gold': {
+        id: 125,
+        name: 'Gold Shovel',
+        category: 'tools',
+        subcategory: 'shovel',
+        stackable: false,
+        maxStack: 1,
+        damage: 2,
+        miningSpeed: 8.0
+    },
     'shovel-diamond': {
         id: 123,
         name: 'Diamond Shovel',
@@ -276,6 +298,16 @@ const ITEMS = {
         stackable: false,
         maxStack: 1,
         damage: 6,
+        miningSpeed: 1.5
+    },
+    'sword-gold': {
+        id: 135,
+        name: 'Gold Sword',
+        category: 'tools',
+        subcategory: 'sword',
+        stackable: false,
+        maxStack: 1,
+        damage: 4,
         miningSpeed: 1.5
     },
     'sword-diamond': {
