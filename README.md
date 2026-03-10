@@ -1,238 +1,143 @@
-<img width="381" height="159" alt="title" src="https://github.com/user-attachments/assets/8bd2e83e-049c-474f-8252-51fb12ae0da4" />
+# 🎮 Brixel Alpha V0.17
 
 <p align="center">
-
-<img src="https://img.shields.io/badge/version-Alpha%201.0%20Dev-blue?style=for-the-badge">
-<img src="https://img.shields.io/badge/license-MIT-green?style=for-the-badge">
-<img src="https://img.shields.io/badge/JavaScript-ES6+-yellow?style=for-the-badge&logo=javascript&logoColor=black">
-
+  <img width="381" height="159" alt="Brixel Title" src="https://github.com/user-attachments/assets/8bd2e83e-049c-474f-8252-51fb12ae0da4" />
 </p>
 
-# <img src="https://img.icons8.com/fluency/28/controller.png"/> Brixels
+<p align="center">
+  <img src="https://img.shields.io/badge/version-Alpha%200.17%20Dev-blue?style=for-the-badge">
+  <img src="https://img.shields.io/badge/license-MIT-green?style=for-the-badge">
+  <img src="https://img.shields.io/badge/JavaScript-ES6+-yellow?style=for-the-badge&logo=javascript&logoColor=black">
+</p>
 
 A **2D Minecraft-inspired sandbox game** built with **vanilla JavaScript** and **HTML5 Canvas**.  
 Explore procedurally generated worlds, mine resources, craft tools, and survive the day-night cycle.
 
 ---
 
-# <img src="https://img.icons8.com/fluency/28/star.png"/> Features
+## ✨ Features
 
-## <img src="https://img.icons8.com/fluency/26/terrain.png"/> World Generation
-
+### 🌍 World Generation
 - **Procedural Terrain**: Infinite world generation with smooth hills and mountains
 - **Multiple Biomes**: Varied terrain with different heights and formations
 - **Underground Layers**: Deep underground with stone and valuable ores
-- **Chunk System**: Efficient chunk-based world loading and rendering
+- **Chunk System**: Efficient chunk-based world loading (max 3 chunks)
+- **Tree Generation**: Natural tree spawning with collapse mechanics
+
+### ⛏️ Mining & Resources
+- **17 Block Types**: Grass, Dirt, Stone, Ores, Trees, and more
+- **5 Material Items**: Coal, Iron, Gold, Diamond, Emerald (drop from ores)
+- **Breaking Animation**: 4-frame break animation with particles
+- **Item Drops**: Resources drop when blocks break
+- **Auto-Pickup**: Magnetic item collection system
+- **Tree Collapse**: Breaking tree blocks causes entire tree to collapse
+
+### 🔨 Tools & Crafting
+- **4x4 Crafting Grid**: 26 crafting recipes available
+- **Tool Tiers**: Wood → Stone → Iron → Gold → Diamond → Emerald
+- **Tool Types**: Pickaxe, Axe, Shovel, Sword
+- **Mining Speed**: Different speeds per tool tier (2x - 15x)
+- **Recipe System**: Shaped recipes with pattern matching
+- **Recipe Overlay**: Search and view all recipes in start menu
+
+### 🎒 Inventory System
+- **42 Inventory Slots** (6 columns × 7 rows)
+- **6 Hotbar Slots** with quick access (keys 1-6)
+- **Drag & Drop**: Item management with mouse
+- **Item Splitting**: Right-click to split stacks in half
+- **Item Stacking**: Up to 64 items per stack
+- **Tooltips**: Detailed item information on hover
+
+### ☀️ Day-Night Cycle
+- **Dynamic Sky**: Gradient transitions between phases
+- **17-Minute Cycle**: Full day-night cycle
+- **Darkness System**: 30% darkness during night
+- **Pixelated Rendering**: Retro-style gradient rendering
+- **Time Phases**: Night → Sunrise → Day → Sunset → Night
+
+### 🏃 Player Mechanics
+- **Smooth Movement**: WASD controls with acceleration
+- **Sprint**: 2x speed using Shift
+- **Jump Physics**: Realistic gravity and jumping
+- **Fly Mode**: Toggle with `/fly on` command
+- **Player Animations**: Walking and standing animations
+- **Fall Damage**: Takes damage after falling 7+ blocks
+- **Health System**: 10 hearts (20 HP)
+
+### 💬 Chat & Commands
+- **Color Codes**: Support for §a, §c, §e, etc.
+- **Admin Commands**: `/adm`, `/adm2` for items
+- **Utility Commands**: `/give`, `/list`, `/time`, `/clear`, `/help`
+- **Fly Command**: `/fly <on|off>`
+- **Chat Overlay**: Press T to open, blocks E/C keys when active
+
+### 🎨 User Interface
+- **Health Bar**: Heart-based health display
+- **Hotbar**: Quick item access with visual feedback
+- **Inventory Screen**: Full inventory management (E)
+- **Crafting Screen**: 4x4 crafting grid (C)
+- **Item Index**: Browse all items in start menu
+- **Block Highlight**: Visual feedback for block selection
+- **Break Progress**: Overlay showing break progress
+- **Pixel Art Cursor**: Custom cursor design
+- **Tooltips**: Item information on hover
+
+### 🎵 Audio & Visuals
+- **Background Music**: Title screen music
+- **Particle Effects**: Block breaking particles
+- **Smooth Camera**: Following system with drift
+- **Retro Graphics**: Pixel-art style rendering
+- **GPU Acceleration**: Hardware-accelerated rendering
+
+### 📊 Performance & Debug
+- **FPS Counter**: VSync FPS and Raw FPS display (F3)
+- **Debug Stats**: Chunks, items, particles, animations
+- **Memory Management**: Automatic cleanup of unused data
+- **Optimized Rendering**: Efficient chunk and particle systems
+- **Performance Limits**: Max 100 particles, 50 broken blocks, 20 animations
 
 ---
 
-## <img src="https://img.icons8.com/fluency/26/pickaxe.png"/> Mining & Resources
+## 🎮 Controls
 
-### Block Types
-
-- Grass, Dirt, Stone *(basic blocks)*
-- Coal Ore, Iron Ore, Diamond Ore, Emerald Ore *(valuable resources)*
-- Bedrock *(unbreakable bottom layer)*
-
-### Mechanics
-
-- **Breaking Animation** – 4-frame break animation
-- **Item Drops** – Resources drop when blocks break
-- **Auto-Pickup** – Magnetic item collection system
-
----
-
-## <img src="https://img.icons8.com/fluency/26/hammer.png"/> Tools & Crafting
-
-### Tool Tiers
-
-```
-Wood → Stone → Iron → Diamond → Emerald
-```
-
-### Tool Types
-
-| Tool | Function |
-|-----|-----|
-| Pickaxe | Mining |
-| Axe | Chopping |
-| Shovel | Digging |
-| Sword | Combat |
-
-### Features
-
-- Tool rendering when equipped
-- Different mining speeds
-- Tier based progression
-
----
-
-## <img src="https://img.icons8.com/fluency/26/backpack.png"/> Inventory System
-
-- **48 Slots** *(6 hotbar + 42 inventory)*
-- **Drag & Drop** item management
-- **Item Stacking** up to 999
-- **Tooltips** for item information
-- **Hotbar Access** using keys 1-6
-
----
-
-## <img src="https://img.icons8.com/fluency/26/sun.png"/> Day-Night Cycle
-
-- **Dynamic Sky** gradient transitions
-- **4-Minute Cycle**
-- **Darkness System** during night
-- **Pixelated Gradient Rendering**
-
-### Time Phases
-
-```
-Night → Sunrise → Day → Sunset → Night
-```
-
----
-
-## <img src="https://img.icons8.com/fluency/26/player.png"/> Player Mechanics
-
-- **Smooth Movement** (WASD)
-- **Sprint** using Shift
-- **Jump Physics**
-- **Fly Mode** via `/fly on`
-- **Player Animations**
-- **Fall Damage System**
-
----
-
-## <img src="https://img.icons8.com/fluency/26/chat.png"/> Chat & Commands
-
-### Chat System
-
-- Press **T** to open chat
-- **Color Codes** supported (§a, §c, §e etc.)
-
-### Commands
-
-```
-/give <item> [count]
-/list [category]
-/adm
-/fly <on|off>
-/time <day|night>
-/clear
-/help
-```
-
----
-
-## <img src="https://img.icons8.com/fluency/26/interface.png"/> User Interface
-
-- **Health Bar** with hearts
-- **Hotbar** with quick items
-- **Inventory Screen** (E)
-- **Block Highlight**
-- **Break Progress Overlay**
-- **Pixel Art Cursor**
-
----
-
-## <img src="https://img.icons8.com/fluency/26/music.png"/> Audio & Visuals
-
-- Background music on title screen
-- Particle effects when breaking blocks
-- Smooth camera following system
-- Retro pixel-style graphics
-
----
-
-## <img src="https://img.icons8.com/fluency/26/monitor.png"/> Screens
-
-- **Title Screen** with animated background
-- **Loading Screen** with world generation progress
-- **Game Screen** with full gameplay
-
----
-
-# <img src="https://img.icons8.com/fluency/26/folder-invoices.png"/> Project Structure
-
-```
-block-world/
-├── assets/
-│   ├── textures/
-│   ├── tools/
-│   ├── ui/
-│   ├── break/
-│   ├── cursor.png
-│   ├── title.png
-│   └── homemc.mp3
-│
-├── css/
-│   ├── style.css
-│   └── load.css
-│
-├── js/
-│   ├── core/
-│   ├── entities/
-│   ├── rendering/
-│   ├── world/
-│   ├── ui/
-│   └── screens/
-│
-├── world.html
-├── index.html
-└── README.md
-```
-
----
-
-# <img src="https://img.icons8.com/fluency/26/keyboard.png"/> Controls
-
-## Movement
-
+### Movement
 | Key | Action |
-|----|----|
-| W / ↑ | Jump |
-| A / ← | Move Left |
-| S / ↓ | Reserved |
-| D / → | Move Right |
-| Shift | Sprint |
+|-----|--------|
+| `W` / `↑` / `Space` | Jump |
+| `A` / `←` | Move Left |
+| `D` / `→` | Move Right |
+| `Shift` (hold) | Sprint (2x speed) |
 
-## Interaction
-
+### Interaction
 | Action | Control |
-|------|------|
-| Break Block | Left Click |
+|--------|---------|
+| Break Block | Left Click (hold) |
 | Place Block | Right Click |
+| Split Item Stack | Right Click (on inventory item) |
 | Scroll Hotbar | Mouse Wheel |
-| Select Slot | 1-6 |
+| Select Hotbar Slot | Keys 1-6 |
 
-## Interface
-
+### Interface
 | Key | Action |
-|----|----|
-| E | Inventory |
-| T | Chat |
-| Enter | Send Message |
-| Escape | Close UI |
+|-----|--------|
+| `E` | Open/Close Inventory |
+| `C` | Open/Close Crafting |
+| `T` | Open Chat |
+| `Enter` | Send Chat Message |
+| `Escape` | Close UI |
+| `F3` | Toggle Debug Info |
 
-## Debug
-
+### Fly Mode (when enabled)
 | Key | Action |
-|----|----|
-| F3 | Toggle Debug |
-
-## Fly Mode
-
-| Key | Action |
-|----|----|
-| Space | Fly Up |
-| Shift | Fly Down |
+|-----|--------|
+| `Space` | Fly Up |
+| `Shift` | Fly Down |
 
 ---
 
-# <img src="https://img.icons8.com/fluency/26/rocket.png"/> Getting Started
+## 🚀 Getting Started
 
 ### Clone Repository
-
 ```bash
 git clone https://github.com/fynnsummers/brixel.git
 cd brixel
@@ -240,42 +145,88 @@ cd brixel
 
 ### Start Local Server
 
-Python
-
+**Python:**
 ```bash
 python -m http.server 8000
 ```
 
-Node
-
+**Node.js:**
 ```bash
 npx http-server
 ```
 
-PHP
-
+**PHP:**
 ```bash
 php -S localhost:8000
 ```
 
-Open:
-
+### Open in Browser
 ```
 http://localhost:8000/index.html
 ```
 
 ---
 
-# <img src="https://img.icons8.com/fluency/26/settings.png"/> Configuration
-
-Located in:
+## 📁 Project Structure
 
 ```
-js/core/config.js
+brixel/
+├── assets/
+│   ├── textures/          # Block textures
+│   ├── tools/             # Tool textures
+│   ├── ui/                # UI elements
+│   ├── break/             # Break animations
+│   ├── cursor.png
+│   ├── title.png
+│   └── homemc.mp3
+│
+├── css/
+│   ├── style.css          # Game styles
+│   └── load.css           # Loading screen styles
+│
+├── js/
+│   ├── core/              # Core game logic
+│   │   ├── config.js
+│   │   ├── game.js
+│   │   ├── items.js
+│   │   └── utils.js
+│   ├── entities/          # Game entities
+│   │   ├── player.js
+│   │   ├── itemDrops.js
+│   │   └── particles.js
+│   ├── rendering/         # Rendering systems
+│   │   ├── renderer.js
+│   │   ├── camera.js
+│   │   └── dayNightCycle.js
+│   ├── world/             # World generation
+│   │   ├── world.js
+│   │   ├── blockBreaker.js
+│   │   └── blockPlacer.js
+│   ├── ui/                # User interface
+│   │   ├── inventory.js
+│   │   ├── crafting.js
+│   │   ├── recipes.js
+│   │   ├── hotbar.js
+│   │   ├── chat.js
+│   │   ├── commands.js
+│   │   └── health.js
+│   └── screens/           # Game screens
+│       ├── load.js
+│       └── titleScreen.js
+│
+├── index.html             # Start screen
+├── world.html             # Game screen
+├── README.md
+└── WIKI.md                # Game wiki
 ```
+
+---
+
+## ⚙️ Configuration
+
+Located in: `js/core/config.js`
 
 ### World Settings
-
 ```javascript
 BLOCK_SIZE: 32
 CHUNK_WIDTH: 16
@@ -285,7 +236,6 @@ UNDERGROUND_DEPTH: 100
 ```
 
 ### Physics
-
 ```javascript
 GRAVITY: 0.5
 JUMP_FORCE: -8
@@ -293,15 +243,15 @@ MOVE_SPEED: 2
 SPRINT_SPEED: 4
 ```
 
-### Day Night Cycle
-
+### Day-Night Cycle
 ```javascript
-CYCLE_DURATION: 240000
-NIGHT_DARKNESS: 0.65
+CYCLE_DURATION: 1060000  // ~17 minutes
+NIGHT_DARKNESS: 0.3
+SUNRISE_TIME: 0.2
+SUNSET_TIME: 0.7
 ```
 
 ### Camera
-
 ```javascript
 CAMERA_SMOOTH: 0.08
 CAMERA_ZOOM: 2.5
@@ -309,69 +259,49 @@ CAMERA_ZOOM: 2.5
 
 ---
 
-# <img src="https://img.icons8.com/fluency/26/brick.png"/> Item System
+## 📖 Documentation
 
-## Blocks
-
-| ID | Name | Break Time |
-|----|----|----|
-| 1 | Grass | 0.5s |
-| 2 | Dirt-Grass | 0.8s |
-| 3 | Dirt | 0.8s |
-| 4 | Stone | 3.0s |
-| 5 | Coal Ore | 4.0s |
-| 6 | Iron Ore | 5.0s |
-| 7 | Bedrock | ∞ |
-| 8 | Diamond Ore | 6.0s |
-| 9 | Emerald Ore | 7.0s |
+For detailed information about blocks, items, tools, and game mechanics, see the [WIKI.md](WIKI.md).
 
 ---
 
-# <img src="https://img.icons8.com/fluency/26/diamond.png"/> Ore Generation
+## 🎯 Planned Features
 
-- Coal Ore → 2%
-- Iron Ore → 1%
-- Diamond Ore → 0.3%
-- Emerald Ore → 0.15%
+- ✅ Crafting System
+- ✅ Item Index
+- ✅ Performance Optimizations
+- ⬜ Mobs & Combat
+- ⬜ More Biomes
+- ⬜ Multiplayer
+- ⬜ Save System
+- ⬜ Structures
+- ⬜ Weather System
 
 ---
 
-# <img src="https://img.icons8.com/fluency/26/bug.png"/> Known Issues
+## 🐛 Known Issues
 
 No issues currently reported.
 
 ---
 
-# <img src="https://img.icons8.com/fluency/26/future.png"/> Planned Features
+## 🤝 Contributing
 
-- Crafting System
-- Mobs & Combat
-- More Biomes
-- Multiplayer
-- Save System
-- More Blocks
-- Structures
-- Weather System
-
----
-
-# <img src="https://img.icons8.com/fluency/26/code.png"/> Contributing
-
-1. Fork the project  
-2. Create a feature branch  
-3. Commit changes  
-4. Push branch  
+1. Fork the project
+2. Create a feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit changes (`git commit -m 'Add AmazingFeature'`)
+4. Push branch (`git push origin feature/AmazingFeature`)
 5. Create Pull Request
 
 ---
 
-# <img src="https://img.icons8.com/fluency/26/document.png"/> License
+## 📄 License
 
-MIT License
+MIT License - see LICENSE file for details
 
 ---
 
-# <img src="https://img.icons8.com/fluency/26/handshake.png"/> Acknowledgments
+## 🙏 Acknowledgments
 
 - Inspired by **Minecraft** and Terraria
 - Built with **Vanilla JavaScript**
@@ -380,21 +310,14 @@ MIT License
 
 ---
 
-# <img src="https://img.icons8.com/fluency/26/link.png"/> Contact
+## 🔗 Links
 
-Project Link
-
-```
-https://github.com/fynnsummers/brixel
-```
+- **Repository**: [github.com/fynnsummers/brixel](https://github.com/fynnsummers/brixel)
+- **Wiki**: [WIKI.md](WIKI.md)
+- **Version**: Alpha 0.17 Dev
 
 ---
 
 <p align="center">
-
-Made by **Fynn Summers, Kai, Finn**
-
+Made by <strong>Fynn Summers, Kai, Finn</strong>
 </p>
-
-
-
