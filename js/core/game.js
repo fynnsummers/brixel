@@ -24,6 +24,12 @@ class Game {
         this.lastTime = Date.now();
         this.spawnX = 100;
         this.spawnY = 0;
+        
+        // FPS Counter
+        this.fps = 0;
+        this.rawFps = 0;
+        this.frameCount = 0;
+        this.fpsTime = Date.now();
     }
     
     setupCanvas() {
@@ -145,6 +151,14 @@ class Game {
         const deltaTime = now - this.lastTime;
         this.lastTime = now;
         
+        // FPS Counter Update (VSync-limitiert)
+        this.frameCount++;
+        if (now - this.fpsTime >= 1000) {
+            this.fps = this.frameCount;
+            this.frameCount = 0;
+            this.fpsTime = now;
+        }
+        
         // Update Tag-Nacht-Zyklus
         this.renderer.updateDayNightCycle(deltaTime);
         
@@ -194,8 +208,24 @@ class Game {
                 
                 const brokenBlock = this.blockBreaker.update(this.input.mouse, this.world, heldItem);
                 if (brokenBlock) {
+                    // Bestimme welches Item gedroppt werden soll
+                    let dropItem = brokenBlock.blockType;
+                    
+                    // Ore-Blöcke droppen ihre entsprechenden Items
+                    if (brokenBlock.blockType === 'coalore') {
+                        dropItem = 'coal';
+                    } else if (brokenBlock.blockType === 'ironore') {
+                        dropItem = 'iron';
+                    } else if (brokenBlock.blockType === 'goldore') {
+                        dropItem = 'gold';
+                    } else if (brokenBlock.blockType === 'diamondore') {
+                        dropItem = 'diamond';
+                    } else if (brokenBlock.blockType === 'emeraldore') {
+                        dropItem = 'emerald';
+                    }
+                    
                     // Erstelle Item-Drop
-                    this.itemDrops.createDrop(brokenBlock.x, brokenBlock.y, brokenBlock.blockType);
+                    this.itemDrops.createDrop(brokenBlock.x, brokenBlock.y, dropItem);
                     
                     // Erstelle Partikel für den zerstörten Block
                     this.particleSystem.createBlockBreakParticles(
@@ -239,19 +269,19 @@ class Game {
         // Inventory & Crafting Drag & Drop
         if (this.input.inventoryOpen || this.input.craftingOpen) {
             // Berechne Inventar-Position
-            const hotbarScale = 1.5;
+            const hotbarScale = CONFIG.HOTBAR.SCALE;
             const hotbarWidth = this.renderer.textures[this.hotbar.getHotbarTextureName()].width * hotbarScale;
             const invScale = hotbarWidth / this.renderer.textures['inventory'].width;
             const invWidth = this.renderer.textures['inventory'].width * invScale;
             const invHeight = this.renderer.textures['inventory'].height * invScale;
             const invX = (this.canvas.width - invWidth) / 2;
             const hotbarHeight = this.renderer.textures[this.hotbar.getHotbarTextureName()].height * hotbarScale;
-            const hotbarY = this.canvas.height - hotbarHeight - 20;
+            const hotbarY = this.canvas.height - hotbarHeight - CONFIG.HOTBAR.OFFSET_Y;
             const invY = hotbarY - invHeight - 20;
             const hotbarX = (this.canvas.width - hotbarWidth) / 2;
             
-            // Mouse Down - Start Drag
-            if (this.input.mouse.isDown && this.inventory.draggedSlot === null) {
+            // Mouse Down - Start Drag (Linksklick)
+            if (this.input.mouse.isDown && this.inventory.draggedSlot === null && !this.input.mouse.rightDragStarted) {
                 if (!this.input.mouse.dragStarted) {
                     let slotIndex = -1;
                     let craftingSlotIndex = -1;
@@ -330,8 +360,59 @@ class Game {
                 }
             }
             
+            // Mouse Down - Start Split Drag (Rechtsklick)
+            if (this.input.mouse.isRightDown && this.inventory.draggedSlot === null) {
+                if (!this.input.mouse.rightDragStarted) {
+                    let slotIndex = -1;
+                    let craftingSlotIndex = -1;
+                    
+                    // Prüfe zuerst Inventar-Slots (nur wenn Inventar offen)
+                    if (this.input.inventoryOpen) {
+                        slotIndex = this.input.getInventorySlotAtMouse(invX, invY, invWidth, invHeight, this.renderer.textures['inventory']);
+                    }
+                    
+                    // Wenn nicht im Inventar, prüfe Hotbar (immer verfügbar)
+                    if (slotIndex < 0) {
+                        slotIndex = this.input.getHotbarSlotAtMouse(hotbarX, hotbarY, hotbarWidth, hotbarHeight);
+                    }
+                    
+                    // Wenn Crafting offen ist, prüfe auch Crafting-Slots
+                    if (slotIndex < 0 && this.input.craftingOpen) {
+                        const craftScale = hotbarWidth / this.renderer.textures['craft'].width;
+                        const craftWidth = this.renderer.textures['craft'].width * craftScale;
+                        const craftHeight = this.renderer.textures['craft'].height * craftScale;
+                        const craftX = (this.canvas.width - craftWidth) / 2;
+                        const craftY = hotbarY - craftHeight - 20;
+                        
+                        craftingSlotIndex = this.input.getCraftingSlotAtMouse(craftX, craftY, craftWidth, craftHeight, craftScale);
+                        
+                        if (craftingSlotIndex >= 0) {
+                            // Starte Split-Drag von Crafting-Slot
+                            const craftingItem = this.crafting.takeSplitItem(craftingSlotIndex);
+                            if (craftingItem) {
+                                // Simuliere Inventory-Drag mit temporärem Slot
+                                this.inventory.draggedSlot = -1000 - craftingSlotIndex; // Negative Werte für Crafting-Slots
+                                this.inventory.draggedItem = craftingItem;
+                                this.input.mouse.rightDragStarted = true;
+                                console.log(`Started split drag from crafting slot ${craftingSlotIndex}: ${craftingItem.item} x${craftingItem.count}`);
+                            }
+                        }
+                    }
+                    
+                    // Starte Split-Drag für Inventory/Hotbar
+                    if (slotIndex >= 0 && craftingSlotIndex < 0) {
+                        const slot = this.inventory.getSlot(slotIndex);
+                        if (slot && slot.item && slot.count > 0) {
+                            console.log(`Right-click on slot ${slotIndex}: ${slot.item} x${slot.count}`);
+                            this.inventory.startSplitDrag(slotIndex);
+                            this.input.mouse.rightDragStarted = true;
+                        }
+                    }
+                }
+            }
+            
             // Mouse Up - End Drag
-            if (!this.input.mouse.isDown) {
+            if (!this.input.mouse.isDown && !this.input.mouse.rightDragStarted) {
                 if (this.inventory.draggedSlot !== null) {
                     let targetSlot = -1;
                     let craftingTransfer = false;
@@ -568,18 +649,162 @@ class Game {
                 this.input.mouse.resultClickProcessed = false; // Reset Result-Click Flag
             }
             
+            // Mouse Down - Linksklick während Split-Drag → Platziere Items
+            if (this.input.mouse.isDown && this.input.mouse.rightDragStarted && this.inventory.draggedSlot !== null) {
+                if (!this.input.mouse.dragStarted) {
+                    let targetSlot = -1;
+                    let craftingTransfer = false;
+                    
+                    // Prüfe zuerst Inventar-Slots (nur wenn Inventar offen)
+                    if (this.input.inventoryOpen) {
+                        targetSlot = this.input.getInventorySlotAtMouse(invX, invY, invWidth, invHeight, this.renderer.textures['inventory']);
+                    }
+                    
+                    // Wenn nicht im Inventar, prüfe Hotbar
+                    if (targetSlot < 0) {
+                        targetSlot = this.input.getHotbarSlotAtMouse(hotbarX, hotbarY, hotbarWidth, hotbarHeight);
+                    }
+                    
+                    // Wenn Crafting offen ist, prüfe auch Crafting-Slots
+                    if (targetSlot < 0 && this.input.craftingOpen) {
+                        const craftScale = hotbarWidth / this.renderer.textures['craft'].width;
+                        const craftWidth = this.renderer.textures['craft'].width * craftScale;
+                        const craftHeight = this.renderer.textures['craft'].height * craftScale;
+                        const craftX = (this.canvas.width - craftWidth) / 2;
+                        const craftY = hotbarY - craftHeight - 20;
+                        
+                        const craftingSlot = this.input.getCraftingSlotAtMouse(craftX, craftY, craftWidth, craftHeight, craftScale);
+                        
+                        if (craftingSlot >= 0) {
+                            // Transfer zu Crafting-Grid
+                            const draggedItem = this.inventory.draggedItem;
+                            
+                            if (draggedItem) {
+                                if (this.crafting.tryPlaceItem(craftingSlot, draggedItem.item, draggedItem.count)) {
+                                    this.inventory.draggedSlot = null;
+                                    this.inventory.draggedItem = null;
+                                    this.input.mouse.rightDragStarted = false;
+                                    craftingTransfer = true;
+                                    console.log(`Transferred split ${draggedItem.count}x ${draggedItem.item} to crafting slot ${craftingSlot}`);
+                                }
+                            }
+                        }
+                    }
+                    
+                    // Normale Inventar-Logik wenn kein Crafting-Transfer
+                    if (!craftingTransfer && targetSlot >= 0) {
+                        console.log(`Left-click during split-drag: placing in slot ${targetSlot}`);
+                        this.inventory.endDrag(targetSlot);
+                        this.input.mouse.rightDragStarted = false;
+                    }
+                    
+                    this.input.mouse.dragStarted = true; // Verhindere mehrfaches Triggern
+                }
+            }
+            
+            // Mouse Up - End Split Drag (Rechtsklick loslassen)
+            if (!this.input.mouse.isRightDown && this.input.mouse.rightDragStarted) {
+                if (this.inventory.draggedSlot !== null) {
+                    let targetSlot = -1;
+                    let craftingTransfer = false;
+                    
+                    // Prüfe zuerst Inventar-Slots (nur wenn Inventar offen)
+                    if (this.input.inventoryOpen) {
+                        targetSlot = this.input.getInventorySlotAtMouse(invX, invY, invWidth, invHeight, this.renderer.textures['inventory']);
+                    }
+                    
+                    // Wenn nicht im Inventar, prüfe Hotbar
+                    if (targetSlot < 0) {
+                        targetSlot = this.input.getHotbarSlotAtMouse(hotbarX, hotbarY, hotbarWidth, hotbarHeight);
+                    }
+                    
+                    // Wenn Crafting offen ist, prüfe auch Crafting-Slots
+                    if (targetSlot < 0 && this.input.craftingOpen) {
+                        const craftScale = hotbarWidth / this.renderer.textures['craft'].width;
+                        const craftWidth = this.renderer.textures['craft'].width * craftScale;
+                        const craftHeight = this.renderer.textures['craft'].height * craftScale;
+                        const craftX = (this.canvas.width - craftWidth) / 2;
+                        const craftY = hotbarY - craftHeight - 20;
+                        
+                        const craftingSlot = this.input.getCraftingSlotAtMouse(craftX, craftY, craftWidth, craftHeight, craftScale);
+                        
+                        if (craftingSlot >= 0) {
+                            // Transfer zu Crafting-Grid
+                            const draggedItem = this.inventory.draggedItem;
+                            
+                            if (draggedItem) {
+                                if (this.crafting.tryPlaceItem(craftingSlot, draggedItem.item, draggedItem.count)) {
+                                    this.inventory.draggedSlot = null;
+                                    this.inventory.draggedItem = null;
+                                    craftingTransfer = true;
+                                    console.log(`Placed split ${draggedItem.count}x ${draggedItem.item} in crafting slot ${craftingSlot}`);
+                                }
+                            }
+                        }
+                    }
+                    
+                    // Wenn über einem Slot (Inventar, Hotbar oder Crafting), platziere dort
+                    if (!craftingTransfer && targetSlot >= 0) {
+                        console.log(`Right-click release: placing in slot ${targetSlot}`);
+                        this.inventory.endDrag(targetSlot);
+                    }
+                    // Nur droppen wenn NICHT über einem Slot
+                    else if (!craftingTransfer && targetSlot < 0) {
+                        console.log(`Right-click release: dropping items`);
+                        
+                        const droppedItem = this.inventory.endDrag(targetSlot);
+                        
+                        // Wenn Item gedroppt werden soll (außerhalb des Inventars)
+                        if (droppedItem) {
+                            // Drop logic
+                            const playerCenterX = this.player.x + this.player.width / 2;
+                            const playerCenterY = this.player.y + this.player.height / 2;
+                            
+                            const mouseWorldX = (this.input.mouse.x / this.camera.zoom) + this.camera.x;
+                            const mouseWorldY = (this.input.mouse.y / this.camera.zoom) + this.camera.y;
+                            
+                            const dirX = mouseWorldX - playerCenterX;
+                            const dirY = mouseWorldY - playerCenterY;
+                            const distance = Math.sqrt(dirX * dirX + dirY * dirY);
+                            
+                            let normalizedDirX = distance > 0 ? dirX / distance : 1;
+                            let normalizedDirY = distance > 0 ? dirY / distance : 0;
+                            
+                            const throwSpeed = 8;
+                            const throwVelocity = {
+                                vx: normalizedDirX * throwSpeed,
+                                vy: normalizedDirY * throwSpeed - 3
+                            };
+                            
+                            const startX = Math.floor(playerCenterX / CONFIG.BLOCK_SIZE);
+                            const startY = Math.floor(playerCenterY / CONFIG.BLOCK_SIZE);
+                            
+                            for (let i = 0; i < droppedItem.count; i++) {
+                                const variation = {
+                                    vx: throwVelocity.vx + (Math.random() - 0.5) * 1,
+                                    vy: throwVelocity.vy + (Math.random() - 0.5) * 1
+                                };
+                                this.itemDrops.createDrop(startX, startY, droppedItem.item, true, variation);
+                            }
+                            console.log(`Dropped ${droppedItem.count}x ${droppedItem.item} from right-click drag`);
+                        }
+                    }
+                }
+                this.input.mouse.rightDragStarted = false;
+            }
+            
             // Result-Slot Click-to-Hotbar (auch wenn bereits Result-Slot Item gedraggt wird)
             if (this.input.craftingOpen && this.input.mouse.isDown && !this.input.mouse.dragStarted && !this.input.mouse.resultClickProcessed) {
                 // Erlaube Klick auch wenn bereits Result-Slot Item gedraggt wird
                 const allowClick = !this.inventory.draggedSlot || this.inventory.draggedSlot === -4000;
-                const hotbarScale = 1.5;
+                const hotbarScale = CONFIG.HOTBAR.SCALE;
                 const hotbarWidth = this.renderer.textures[this.hotbar.getHotbarTextureName()].width * hotbarScale;
                 const craftScale = hotbarWidth / this.renderer.textures['craft'].width;
                 const craftWidth = this.renderer.textures['craft'].width * craftScale;
                 const craftHeight = this.renderer.textures['craft'].height * craftScale;
                 const craftX = (this.canvas.width - craftWidth) / 2;
                 const hotbarHeight = this.renderer.textures[this.hotbar.getHotbarTextureName()].height * hotbarScale;
-                const hotbarY = this.canvas.height - hotbarHeight - 20;
+                const hotbarY = this.canvas.height - hotbarHeight - CONFIG.HOTBAR.OFFSET_Y;
                 const craftY = hotbarY - craftHeight - 20;
                 
                 const resultWidth = this.renderer.textures['craft-result'].width * craftScale;
@@ -772,12 +997,34 @@ class Game {
     }
     
     render() {
-        this.renderer.render(this.world, this.player, this.camera, this.input.mouse, this.blockBreaker, this.particleSystem, this.hotbar, this.health, this.itemDrops, this.inventory, this.input, this.chat, this.crafting);
+        this.renderer.render(this.world, this.player, this.camera, this.input.mouse, this.blockBreaker, this.particleSystem, this.hotbar, this.health, this.itemDrops, this.inventory, this.input, this.chat, this.crafting, this);
     }
     
     gameLoop() {
+        // Messe die tatsächliche Render-Zeit
+        const frameStart = performance.now();
+        
         this.update();
         this.render();
+        
+        const frameEnd = performance.now();
+        const actualFrameTime = frameEnd - frameStart;
+        
+        // Berechne Raw FPS basierend auf tatsächlicher Render-Zeit
+        if (!this.renderTimes) this.renderTimes = [];
+        this.renderTimes.push(actualFrameTime);
+        if (this.renderTimes.length > 30) {
+            this.renderTimes.shift();
+        }
+        const avgRenderTime = this.renderTimes.reduce((a, b) => a + b, 0) / this.renderTimes.length;
+        this.rawFps = avgRenderTime > 0 ? Math.round(1000 / avgRenderTime) : 0;
+        
+        // Cleanup alle 60 Frames (ca. 1x pro Sekunde bei 60 FPS)
+        if (this.frameCount % 60 === 0) {
+            // Force Garbage Collection Hint (Browser entscheidet)
+            if (window.gc) window.gc();
+        }
+        
         requestAnimationFrame(() => this.gameLoop());
     }
 }

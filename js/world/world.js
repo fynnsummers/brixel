@@ -285,6 +285,15 @@ class World {
     generateChunk(chunkX) {
         if (this.chunks.has(chunkX)) return this.chunks.get(chunkX);
         
+        // Performance-Optimierung: Begrenze gleichzeitige Chunk-Generierung
+        if (!this.generatingChunks) this.generatingChunks = new Set();
+        if (this.generatingChunks.has(chunkX)) {
+            // Chunk wird bereits generiert, gib leeren Chunk zurück
+            return this.createEmptyChunk();
+        }
+        
+        this.generatingChunks.add(chunkX);
+        
         const chunk = [];
         const seed = chunkX * 1000;
         const heights = []; // Speichere Höhen für Glättung
@@ -362,169 +371,56 @@ class World {
                     
                     const blockX = chunkX * CONFIG.CHUNK_WIDTH + x;
                     const veinKey = `${blockX},${y}`;
-                    
-                    // Granit-Adern - große, lange und breite Cluster in Steinschicht (auch nahe der Oberfläche)
-                    // Kann ab 10 Blöcken unter Dirt spawnen
                     const depthBelowDirt = y - (surfaceHeight + 1 + CONFIG.STONE_DEPTH);
+                    
+                    // Granit-Adern - vereinfachte Generierung für bessere Performance
                     const graniteSeed = blockX * 6000 + y * 600;
                     
-                    // Höhere Spawn-Chance (3%) und spawnt auch nahe der Oberfläche
-                    if (depthBelowDirt >= 0 && seededRandom(graniteSeed) < 0.03 && graniteBlocks.size === 0) {
-                        // Erstelle sehr große Granit-Ader (30-50 Blöcke)
-                        const veinSize = Math.floor(seededRandom(graniteSeed + 1) * 21) + 30; // 30-50 Blöcke
+                    if (depthBelowDirt >= 0 && seededRandom(graniteSeed) < 0.02 && graniteBlocks.size === 0) {
+                        // Erstelle Granit-Ader (20-30 Blöcke) - vereinfacht
                         blockType = 'granite';
                         graniteBlocks.add(veinKey);
                         
-                        // Starte mit einer längeren Basis-Linie (horizontal oder vertikal)
+                        // Einfache Linie mit Verdickung
                         const isHorizontal = seededRandom(graniteSeed + 2) > 0.5;
-                        const baseLength = Math.floor(seededRandom(graniteSeed + 3) * 12) + 10; // 10-21 Blöcke Basis
+                        const length = Math.floor(seededRandom(graniteSeed + 3) * 11) + 10; // 10-20 Blöcke
                         
-                        // Erstelle Basis-Linie
-                        for (let i = 1; i <= baseLength && graniteBlocks.size < 50; i++) {
-                            const baseKey = isHorizontal ? `${blockX + i},${y}` : `${blockX},${y + i}`;
-                            if (!oreVeins.has(baseKey)) {
-                                graniteBlocks.add(baseKey);
-                            }
-                        }
-                        
-                        // Verdicke die Ader stark in alle Richtungen (2 Blöcke dick)
-                        const allGraniteBlocks = Array.from(graniteBlocks);
-                        for (let baseBlock of allGraniteBlocks) {
-                            if (graniteBlocks.size >= 50) break;
-                            
-                            const [bx, by] = baseBlock.split(',').map(Number);
-                            
-                            // Füge Blöcke in alle Richtungen hinzu für große Breite
-                            const thickenDirs = [
-                                {x: 1, y: 0}, {x: -1, y: 0}, {x: 0, y: 1}, {x: 0, y: -1},
-                                {x: 1, y: 1}, {x: -1, y: -1}, {x: 1, y: -1}, {x: -1, y: 1},
-                                {x: 2, y: 0}, {x: -2, y: 0}, {x: 0, y: 2}, {x: 0, y: -2} // 2 Blöcke entfernt
-                            ];
-                            
-                            for (let dir of thickenDirs) {
-                                if (graniteBlocks.size >= 50) break;
-                                
-                                // 90% Chance für direkte Nachbarn, 70% für diagonale, 50% für 2 Blöcke entfernt
-                                let chance = 0.9;
-                                if (dir.x !== 0 && dir.y !== 0) chance = 0.7; // diagonal
-                                if (Math.abs(dir.x) === 2 || Math.abs(dir.y) === 2) chance = 0.5; // 2 Blöcke entfernt
-                                
-                                if (seededRandom(graniteSeed + bx + by + dir.x * 100 + dir.y * 200) < chance) {
-                                    const thickenKey = `${bx + dir.x},${by + dir.y}`;
-                                    if (!graniteBlocks.has(thickenKey) && !oreVeins.has(thickenKey)) {
-                                        graniteBlocks.add(thickenKey);
-                                    }
-                                }
-                            }
-                        }
-                        
-                        // Füge mehr Verzweigungen hinzu für natürlichere Form
-                        const currentBlocks = Array.from(graniteBlocks);
-                        for (let i = 0; i < currentBlocks.length && graniteBlocks.size < 50; i++) {
-                            const [bx, by] = currentBlocks[i].split(',').map(Number);
-                            
-                            // 50% Chance für eine Verzweigung (mehr Verzweigungen)
-                            if (seededRandom(graniteSeed + bx * 10 + by * 20) < 0.5) {
-                                const branchLength = Math.floor(seededRandom(graniteSeed + bx + by) * 6) + 3; // 3-8 Blöcke
-                                const branchDir = Math.floor(seededRandom(graniteSeed + bx * 2 + by * 3) * 4);
-                                const dirs = [{x: 1, y: 0}, {x: -1, y: 0}, {x: 0, y: 1}, {x: 0, y: -1}];
-                                const dir = dirs[branchDir];
-                                
-                                for (let j = 1; j <= branchLength && graniteBlocks.size < 50; j++) {
-                                    const branchKey = `${bx + dir.x * j},${by + dir.y * j}`;
-                                    if (!graniteBlocks.has(branchKey) && !oreVeins.has(branchKey)) {
-                                        graniteBlocks.add(branchKey);
-                                    }
-                                }
-                            }
+                        for (let i = 1; i <= length && graniteBlocks.size < 30; i++) {
+                            const key1 = isHorizontal ? `${blockX + i},${y}` : `${blockX},${y + i}`;
+                            const key2 = isHorizontal ? `${blockX + i},${y + 1}` : `${blockX + 1},${y + i}`;
+                            if (!oreVeins.has(key1)) graniteBlocks.add(key1);
+                            if (!oreVeins.has(key2) && seededRandom(graniteSeed + i) < 0.7) graniteBlocks.add(key2);
                         }
                     }
                     
-                    // Diorit-Adern - große, lange und breite Cluster in Steinschicht (maximal 36 Blöcke pro Chunk)
-                    // Prüfe Abstand zu Granit-Adern (mindestens 15 Blöcke Abstand)
+                    // Diorit-Adern - vereinfachte Generierung
                     let tooCloseToGranite = false;
-                    for (let checkDist = -15; checkDist <= 15; checkDist++) {
-                        for (let checkDistY = -15; checkDistY <= 15; checkDistY++) {
-                            const checkKey = `${blockX + checkDist},${y + checkDistY}`;
+                    if (graniteBlocks.size > 0) {
+                        // Schnelle Distanzprüfung (nur horizontal)
+                        for (let checkDist = -10; checkDist <= 10 && !tooCloseToGranite; checkDist++) {
+                            const checkKey = `${blockX + checkDist},${y}`;
                             if (graniteBlocks.has(checkKey)) {
                                 tooCloseToGranite = true;
-                                break;
                             }
                         }
-                        if (tooCloseToGranite) break;
                     }
                     
                     const dioriteSeed = blockX * 7000 + y * 700;
                     
-                    // Höhere Spawn-Chance (3%) und spawnt auch nahe der Oberfläche
-                    if (!tooCloseToGranite && depthBelowDirt >= 0 && seededRandom(dioriteSeed) < 0.03 && dioriteBlocks.size === 0 && blockType === 'stone') {
-                        // Erstelle sehr große Diorit-Ader (30-50 Blöcke)
-                        const veinSize = Math.floor(seededRandom(dioriteSeed + 1) * 21) + 30; // 30-50 Blöcke
+                    if (!tooCloseToGranite && depthBelowDirt >= 0 && seededRandom(dioriteSeed) < 0.02 && dioriteBlocks.size === 0 && blockType === 'stone') {
+                        // Erstelle Diorit-Ader (20-30 Blöcke) - vereinfacht
                         blockType = 'diorite';
                         dioriteBlocks.add(veinKey);
                         
-                        // Starte mit einer längeren Basis-Linie (horizontal oder vertikal)
+                        // Einfache Linie mit Verdickung
                         const isHorizontal = seededRandom(dioriteSeed + 2) > 0.5;
-                        const baseLength = Math.floor(seededRandom(dioriteSeed + 3) * 12) + 10; // 10-21 Blöcke Basis
+                        const length = Math.floor(seededRandom(dioriteSeed + 3) * 11) + 10; // 10-20 Blöcke
                         
-                        // Erstelle Basis-Linie
-                        for (let i = 1; i <= baseLength && dioriteBlocks.size < 50; i++) {
-                            const baseKey = isHorizontal ? `${blockX + i},${y}` : `${blockX},${y + i}`;
-                            if (!oreVeins.has(baseKey) && !graniteBlocks.has(baseKey)) {
-                                dioriteBlocks.add(baseKey);
-                            }
-                        }
-                        
-                        // Verdicke die Ader stark in alle Richtungen (2 Blöcke dick)
-                        const allDioriteBlocks = Array.from(dioriteBlocks);
-                        for (let baseBlock of allDioriteBlocks) {
-                            if (dioriteBlocks.size >= 50) break;
-                            
-                            const [bx, by] = baseBlock.split(',').map(Number);
-                            
-                            // Füge Blöcke in alle Richtungen hinzu für große Breite
-                            const thickenDirs = [
-                                {x: 1, y: 0}, {x: -1, y: 0}, {x: 0, y: 1}, {x: 0, y: -1},
-                                {x: 1, y: 1}, {x: -1, y: -1}, {x: 1, y: -1}, {x: -1, y: 1},
-                                {x: 2, y: 0}, {x: -2, y: 0}, {x: 0, y: 2}, {x: 0, y: -2} // 2 Blöcke entfernt
-                            ];
-                            
-                            for (let dir of thickenDirs) {
-                                if (dioriteBlocks.size >= 50) break;
-                                
-                                // 90% Chance für direkte Nachbarn, 70% für diagonale, 50% für 2 Blöcke entfernt
-                                let chance = 0.9;
-                                if (dir.x !== 0 && dir.y !== 0) chance = 0.7; // diagonal
-                                if (Math.abs(dir.x) === 2 || Math.abs(dir.y) === 2) chance = 0.5; // 2 Blöcke entfernt
-                                
-                                if (seededRandom(dioriteSeed + bx + by + dir.x * 100 + dir.y * 200) < chance) {
-                                    const thickenKey = `${bx + dir.x},${by + dir.y}`;
-                                    if (!dioriteBlocks.has(thickenKey) && !oreVeins.has(thickenKey) && !graniteBlocks.has(thickenKey)) {
-                                        dioriteBlocks.add(thickenKey);
-                                    }
-                                }
-                            }
-                        }
-                        
-                        // Füge mehr Verzweigungen hinzu für natürlichere Form
-                        const currentBlocks = Array.from(dioriteBlocks);
-                        for (let i = 0; i < currentBlocks.length && dioriteBlocks.size < 50; i++) {
-                            const [bx, by] = currentBlocks[i].split(',').map(Number);
-                            
-                            // 50% Chance für eine Verzweigung (mehr Verzweigungen)
-                            if (seededRandom(dioriteSeed + bx * 10 + by * 20) < 0.5) {
-                                const branchLength = Math.floor(seededRandom(dioriteSeed + bx + by) * 6) + 3; // 3-8 Blöcke
-                                const branchDir = Math.floor(seededRandom(dioriteSeed + bx * 2 + by * 3) * 4);
-                                const dirs = [{x: 1, y: 0}, {x: -1, y: 0}, {x: 0, y: 1}, {x: 0, y: -1}];
-                                const dir = dirs[branchDir];
-                                
-                                for (let j = 1; j <= branchLength && dioriteBlocks.size < 50; j++) {
-                                    const branchKey = `${bx + dir.x * j},${by + dir.y * j}`;
-                                    if (!dioriteBlocks.has(branchKey) && !oreVeins.has(branchKey) && !graniteBlocks.has(branchKey)) {
-                                        dioriteBlocks.add(branchKey);
-                                    }
-                                }
-                            }
+                        for (let i = 1; i <= length && dioriteBlocks.size < 30; i++) {
+                            const key1 = isHorizontal ? `${blockX + i},${y}` : `${blockX},${y + i}`;
+                            const key2 = isHorizontal ? `${blockX + i},${y + 1}` : `${blockX + 1},${y + i}`;
+                            if (!oreVeins.has(key1) && !graniteBlocks.has(key1)) dioriteBlocks.add(key1);
+                            if (!oreVeins.has(key2) && !graniteBlocks.has(key2) && seededRandom(dioriteSeed + i) < 0.7) dioriteBlocks.add(key2);
                         }
                     }
                     
@@ -631,9 +527,25 @@ class World {
         // Speichere Chunk bevor Bäume generiert werden
         this.chunks.set(chunkX, chunk);
         
+        // Markiere Chunk als fertig generiert
+        this.generatingChunks.delete(chunkX);
+        
         // Baum-Generierung - nach der Chunk-Erstellung
         this.generateTreesForChunk(chunkX, chunk, finalHeights);
         
+        return chunk;
+    }
+    
+    createEmptyChunk() {
+        // Erstelle einen leeren Chunk als Platzhalter
+        const chunk = [];
+        for (let x = 0; x < CONFIG.CHUNK_WIDTH; x++) {
+            const column = [];
+            for (let y = 0; y < CONFIG.WORLD_HEIGHT; y++) {
+                column.push(null);
+            }
+            chunk.push(column);
+        }
         return chunk;
     }
     
@@ -846,10 +758,87 @@ class World {
     }
     
     cleanupChunks(startChunk, endChunk) {
+        // STRIKTES LIMIT: Nur maximal 3 Chunks gleichzeitig geladen
+        // Behalte nur den aktuellen Chunk und je 1 Nachbar links/rechts
+        const allowedChunks = new Set([startChunk, startChunk + 1, startChunk + 2]);
+        
+        const chunksToDelete = [];
         for (let [chunkX] of this.chunks) {
-            if (chunkX < startChunk - 2 || chunkX > endChunk + 2) {
-                this.chunks.delete(chunkX);
+            if (!allowedChunks.has(chunkX)) {
+                chunksToDelete.push(chunkX);
             }
+        }
+        
+        // Lösche alle nicht erlaubten Chunks
+        chunksToDelete.forEach(chunkX => {
+            this.chunks.delete(chunkX);
+        });
+        
+        // AGGRESSIV: Bereinige brokenBlocks - nur für erlaubte Chunks behalten
+        const brokenBlocksToDelete = [];
+        for (let blockKey of this.brokenBlocks) {
+            const [chunkX] = blockKey.split(',').map(Number);
+            if (!allowedChunks.has(chunkX)) {
+                brokenBlocksToDelete.push(blockKey);
+            }
+        }
+        
+        brokenBlocksToDelete.forEach(key => {
+            this.brokenBlocks.delete(key);
+        });
+        
+        // Limit: Maximal 50 broken blocks gleichzeitig
+        if (this.brokenBlocks.size > 50) {
+            const toDelete = Array.from(this.brokenBlocks).slice(0, this.brokenBlocks.size - 50);
+            toDelete.forEach(key => this.brokenBlocks.delete(key));
+        }
+        
+        // Bereinige Break-Animationen
+        this.breakAnimations = this.breakAnimations.filter(anim => {
+            const chunkX = Math.floor(anim.blockX / CONFIG.CHUNK_WIDTH);
+            return allowedChunks.has(chunkX);
+        });
+        
+        // Limit: Maximal 20 Animationen
+        if (this.breakAnimations.length > 20) {
+            this.breakAnimations = this.breakAnimations.slice(-20);
+        }
+        
+        // Bereinige Tree-Collapse-Queue
+        if (this.treeCollapseQueue && this.treeCollapseQueue.length > 0) {
+            this.treeCollapseQueue = this.treeCollapseQueue.filter(collapse => {
+                const chunkX = Math.floor(collapse.x / CONFIG.CHUNK_WIDTH);
+                return allowedChunks.has(chunkX);
+            });
+            
+            // Limit: Maximal 50 Tree-Collapse-Einträge
+            if (this.treeCollapseQueue.length > 50) {
+                this.treeCollapseQueue = this.treeCollapseQueue.slice(-50);
+            }
+        }
+        
+        // Bereinige Tree-Collapse-Drops
+        if (this.treeCollapseDrops && this.treeCollapseDrops.length > 0) {
+            this.treeCollapseDrops = this.treeCollapseDrops.filter(drop => {
+                const chunkX = Math.floor(drop.x / CONFIG.CHUNK_WIDTH);
+                return allowedChunks.has(chunkX);
+            });
+            
+            // Limit: Maximal 30 Drops
+            if (this.treeCollapseDrops.length > 30) {
+                this.treeCollapseDrops = this.treeCollapseDrops.slice(-30);
+            }
+        }
+        
+        // Bereinige generatingChunks Set
+        if (this.generatingChunks && this.generatingChunks.size > 0) {
+            const toRemove = [];
+            for (let chunkX of this.generatingChunks) {
+                if (!allowedChunks.has(chunkX)) {
+                    toRemove.push(chunkX);
+                }
+            }
+            toRemove.forEach(chunkX => this.generatingChunks.delete(chunkX));
         }
     }
 }

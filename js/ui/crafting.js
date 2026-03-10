@@ -3,27 +3,10 @@
 class Crafting {
     constructor() {
         this.isOpen = false;
-        this.recipes = this.initializeRecipes();
+        this.recipes = RECIPES; // Lade Rezepte aus recipes.js
         this.selectedRecipe = null;
         this.craftingGrid = Array(16).fill(null); // 4x4 Grid (16 slots)
         this.resultSlot = null;
-    }
-    
-    initializeRecipes() {
-        return [
-            {
-                id: 'tree_to_wood',
-                pattern: [
-                    ['tree']  // 1 tree block
-                ],
-                result: {
-                    item: 'wood',
-                    count: 4
-                },
-                shapeless: true // Kann überall im Grid platziert werden
-            }
-            // Weitere Rezepte können hier hinzugefügt werden
-        ];
     }
     
     toggle() {
@@ -112,18 +95,102 @@ class Crafting {
             return true;
         }
         
-        // TODO: Shaped Rezepte implementieren
+        if (recipe.shaped) {
+            // Shaped Rezept - Pattern muss irgendwo im 4x4 Grid passen
+            return this.matchesShapedPattern(recipe.pattern);
+        }
+        
         return false;
     }
     
+    matchesShapedPattern(pattern) {
+        const patternHeight = pattern.length;
+        const patternWidth = pattern[0].length;
+        
+        // Versuche das Pattern an jeder Position im 4x4 Grid zu finden
+        for (let startRow = 0; startRow <= 4 - patternHeight; startRow++) {
+            for (let startCol = 0; startCol <= 4 - patternWidth; startCol++) {
+                if (this.checkPatternAtPosition(pattern, startRow, startCol)) {
+                    // Prüfe ob keine anderen Items im Grid sind
+                    if (this.hasOnlyPatternItems(pattern, startRow, startCol)) {
+                        return true;
+                    }
+                }
+            }
+        }
+        
+        return false;
+    }
+    
+    checkPatternAtPosition(pattern, startRow, startCol) {
+        const patternHeight = pattern.length;
+        const patternWidth = pattern[0].length;
+        
+        for (let row = 0; row < patternHeight; row++) {
+            for (let col = 0; col < patternWidth; col++) {
+                const patternItem = pattern[row][col];
+                const gridIndex = (startRow + row) * 4 + (startCol + col);
+                const gridSlot = this.craftingGrid[gridIndex];
+                
+                if (patternItem) {
+                    // Pattern erwartet ein Item
+                    if (!gridSlot || gridSlot.item !== patternItem) {
+                        return false;
+                    }
+                } else {
+                    // Pattern erwartet leeren Slot
+                    if (gridSlot && gridSlot.item) {
+                        return false;
+                    }
+                }
+            }
+        }
+        
+        return true;
+    }
+    
+    hasOnlyPatternItems(pattern, startRow, startCol) {
+        const patternHeight = pattern.length;
+        const patternWidth = pattern[0].length;
+        
+        // Prüfe ob alle Items im Grid Teil des Patterns sind
+        for (let i = 0; i < 16; i++) {
+            const gridSlot = this.craftingGrid[i];
+            if (gridSlot && gridSlot.item) {
+                const row = Math.floor(i / 4);
+                const col = i % 4;
+                
+                // Prüfe ob diese Position im Pattern liegt
+                const inPattern = (
+                    row >= startRow && 
+                    row < startRow + patternHeight && 
+                    col >= startCol && 
+                    col < startCol + patternWidth
+                );
+                
+                if (!inPattern) {
+                    return false; // Item außerhalb des Patterns
+                }
+            }
+        }
+        
+        return true;
+    }
+    
     calculateMaxCrafts(recipe, itemCounts) {
+        // Für shaped Rezepte: Immer nur 1x craftbar (egal wie viele Items in den Slots)
+        if (recipe.shaped) {
+            return 1;
+        }
+        
+        // Für shapeless Rezepte: Berechne basierend auf verfügbaren Items
         let maxCrafts = Infinity;
         
         for (const patternRow of recipe.pattern) {
             for (const item of patternRow) {
                 if (item) {
                     const available = itemCounts[item] || 0;
-                    const needed = 1; // Für shapeless Rezepte
+                    const needed = 1;
                     maxCrafts = Math.min(maxCrafts, Math.floor(available / needed));
                 }
             }
@@ -191,6 +258,30 @@ class Crafting {
                 this.craftingGrid[slotIndex] = null;
                 this.checkRecipes();
                 return item;
+            }
+        }
+        return null;
+    }
+    
+    // Hole die Hälfte eines Items aus Crafting-Grid (für Split-Drag)
+    takeSplitItem(slotIndex) {
+        if (slotIndex >= 0 && slotIndex < 16) {
+            const slot = this.craftingGrid[slotIndex];
+            if (slot && slot.item && slot.count > 1) {
+                // Berechne die Hälfte (aufgerundet)
+                const halfCount = Math.ceil(slot.count / 2);
+                const remainingCount = slot.count - halfCount;
+                
+                console.log(`Split taking from crafting slot ${slotIndex}: ${halfCount} taken, ${remainingCount} remaining`);
+                
+                // Lasse die andere Hälfte im Slot
+                slot.count = remainingCount;
+                this.checkRecipes();
+                
+                return { item: slot.item, count: halfCount };
+            } else if (slot && slot.item && slot.count === 1) {
+                // Nur 1 Item - nimm alles
+                return this.takeItem(slotIndex);
             }
         }
         return null;

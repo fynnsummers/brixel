@@ -130,6 +130,62 @@ const ITEMS = {
         stackable: true,
         maxStack: 64
     },
+    'wood-stick': {
+        id: 17,
+        name: 'Stick',
+        category: 'materials',
+        subcategory: 'crafting',
+        stackable: true,
+        maxStack: 64,
+        placeable: false
+    },
+    
+    // Materialien (nicht platzierbar)
+    'coal': {
+        id: 18,
+        name: 'Coal',
+        category: 'materials',
+        subcategory: 'ore',
+        stackable: true,
+        maxStack: 64,
+        placeable: false
+    },
+    'iron': {
+        id: 19,
+        name: 'Iron Ingot',
+        category: 'materials',
+        subcategory: 'ore',
+        stackable: true,
+        maxStack: 64,
+        placeable: false
+    },
+    'gold': {
+        id: 20,
+        name: 'Gold Ingot',
+        category: 'materials',
+        subcategory: 'ore',
+        stackable: true,
+        maxStack: 64,
+        placeable: false
+    },
+    'diamond': {
+        id: 21,
+        name: 'Diamond',
+        category: 'materials',
+        subcategory: 'ore',
+        stackable: true,
+        maxStack: 64,
+        placeable: false
+    },
+    'emerald': {
+        id: 22,
+        name: 'Emerald',
+        category: 'materials',
+        subcategory: 'ore',
+        stackable: true,
+        maxStack: 64,
+        placeable: false
+    },
     
     // Tools - Äxte
     'axe-wood': {
@@ -383,7 +439,7 @@ const ITEMS = {
     'wood': {
         id: 200,
         name: 'Wood',
-        category: 'materials',
+        category: 'blocks',
         subcategory: 'crafting',
         stackable: true,
         maxStack: 64

@@ -1,7 +1,7 @@
 // Spiel-Konfiguration
 const CONFIG = {
     // Version
-    VERSION: 'Alpha 0.16 Dev',
+    VERSION: 'Alpha 0.17 Dev',
     
     BLOCK_SIZE: 32,
     CHUNK_WIDTH: 16,
@@ -103,6 +103,17 @@ const CONFIG = {
         SPACING_Y: 47,
         SLOT_SIZE: 40,
         DEBUG: false // Rote Border um Slots anzeigen
+    },
+    
+    // Hotbar
+    HOTBAR: {
+        SCALE: 1.5,          // Skalierung der Hotbar
+        OFFSET_Y: 20,        // Abstand vom unteren Rand
+        SLOT_START_X: 18,    // Start-Position der Slots im Texture
+        SLOT_START_Y: 5.5,     //d Start-Position der Slots im Texture (Y)
+        SLOT_SIZE: 40,       // Größe der Slots
+        SLOT_SPACING: 46,  // Abstand zwischen Slots
+        DEBUG: false         // Rote Border um Slots anzeigen
     },
     
     // Chat

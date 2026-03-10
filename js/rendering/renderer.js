@@ -3,7 +3,15 @@
 class Renderer {
     constructor(canvas) {
         this.canvas = canvas;
-        this.ctx = canvas.getContext('2d');
+        // Hardware-Beschleunigung aktivieren (ohne desynchronized für stabiles Rendering)
+        this.ctx = canvas.getContext('2d', {
+            alpha: false,           // Kein Alpha-Kanal = schneller
+            willReadFrequently: false // Optimiert für Schreiben, nicht Lesen
+        });
+        
+        // Zusätzliche Performance-Optimierungen
+        this.ctx.imageSmoothingEnabled = false; // Pixelated rendering
+        
         this.textures = {};
         this.highlightAlpha = 0;
         this.targetHighlightAlpha = 0;
@@ -13,7 +21,7 @@ class Renderer {
     }
     
     async loadTextures() {
-        const textureNames = ['stone', 'dirt', 'dirt-grass', 'grass', 'coalore', 'ironore', 'goldore', 'bedrock', 'diamondore', 'emeraldore', 'granite', 'diorite', 'dirt-grass-tree', 'tree', 'tree-head', 'tree-leaves', 'cursor', 'blocked-cursor', 'inventory', 'craft', 'craft-result', 'chat', 'chat-inactive', 'tooltip', 'title', 'wood', 'wood-stick'];
+        const textureNames = ['stone', 'dirt', 'dirt-grass', 'grass', 'coalore', 'ironore', 'goldore', 'bedrock', 'diamondore', 'emeraldore', 'granite', 'diorite', 'dirt-grass-tree', 'tree', 'tree-head', 'tree-leaves', 'cursor', 'blocked-cursor', 'inventory', 'craft', 'craft-result', 'chat', 'chat-inactive', 'tooltip', 'title', 'wood', 'wood-stick', 'coal', 'iron', 'gold', 'diamond', 'emerald'];
         
         // Player-Animationen hinzufügen
         for (let i = 1; i <= 2; i++) {
@@ -81,7 +89,7 @@ class Renderer {
         this.highlightAlpha += (this.targetHighlightAlpha - this.highlightAlpha) * CONFIG.HIGHLIGHT_SMOOTH;
     }
     
-    render(world, player, camera, mouse, blockBreaker, particleSystem, hotbar, health, itemDrops, inventory, input, chat, crafting) {
+    render(world, player, camera, mouse, blockBreaker, particleSystem, hotbar, health, itemDrops, inventory, input, chat, crafting, game) {
         // Zeichne Himmel mit Gradient (Tag-Nacht-Zyklus)
         const skyColors = this.getSkyColors();
         this.drawPixelatedGradient(skyColors);
@@ -266,7 +274,7 @@ class Renderer {
                 
                 // Position über der Hotbar
                 const hotbarHeight = this.textures[hotbar.getHotbarTextureName()].height * hotbarScale;
-                const hotbarY = this.canvas.height - hotbarHeight - 20;
+                const hotbarY = this.canvas.height - hotbarHeight - CONFIG.HOTBAR.OFFSET_Y;
                 const invY = hotbarY - invHeight - 20;
                 
                 this.ctx.drawImage(this.textures['inventory'], invX, invY, invWidth, invHeight);
@@ -388,7 +396,7 @@ class Renderer {
                 
                 // Position über der Hotbar (gleich wie Inventar)
                 const hotbarHeight = this.textures[hotbar.getHotbarTextureName()].height * hotbarScale;
-                const hotbarY = this.canvas.height - hotbarHeight - 20;
+                const hotbarY = this.canvas.height - hotbarHeight - CONFIG.HOTBAR.OFFSET_Y;
                 const craftY = hotbarY - craftHeight - 20;
                 
                 // Zeichne Craft-Bild
@@ -584,11 +592,11 @@ class Renderer {
         
         const hotbarTextureName = hotbar.getHotbarTextureName();
         if (this.textures[hotbarTextureName]) {
-            const scale = 1.5;
+            const scale = CONFIG.HOTBAR.SCALE;
             const hotbarWidth = this.textures[hotbarTextureName].width * scale;
             const hotbarHeight = this.textures[hotbarTextureName].height * scale;
             const hotbarX = (this.canvas.width - hotbarWidth) / 2;
-            const hotbarY = this.canvas.height - hotbarHeight - 20;
+            const hotbarY = this.canvas.height - hotbarHeight - CONFIG.HOTBAR.OFFSET_Y;
             
             this.ctx.drawImage(this.textures[hotbarTextureName], hotbarX, hotbarY, hotbarWidth, hotbarHeight);
             
@@ -597,11 +605,11 @@ class Renderer {
                 hoveredSlotIndex = input.getHotbarSlotAtMouse(hotbarX, hotbarY, hotbarWidth, hotbarHeight);
             }
             
-            const slotWidth = 40;
-            const slotHeight = 40;
-            const slotStartX = 18;
-            const slotStartY = 3;
-            const slotSpacing = 45.5;
+            const slotWidth = CONFIG.HOTBAR.SLOT_SIZE;
+            const slotHeight = CONFIG.HOTBAR.SLOT_SIZE;
+            const slotStartX = CONFIG.HOTBAR.SLOT_START_X;
+            const slotStartY = CONFIG.HOTBAR.SLOT_START_Y;
+            const slotSpacing = CONFIG.HOTBAR.SLOT_SPACING;
             const itemSize = 28 * scale;
             
             for (let i = 0; i < 6; i++) {
@@ -609,6 +617,13 @@ class Renderer {
                 const slotOriginalY = slotStartY;
                 const slotScreenX = hotbarX + slotOriginalX * scale;
                 const slotScreenY = hotbarY + slotOriginalY * scale;
+                
+                // Debug: Rote Border um jeden Slot
+                if (CONFIG.HOTBAR.DEBUG) {
+                    this.ctx.strokeStyle = 'red';
+                    this.ctx.lineWidth = 1;
+                    this.ctx.strokeRect(slotScreenX, slotScreenY, slotWidth * scale, slotHeight * scale);
+                }
                 
                 // Hover-Effekt: Leichte weiße Füllung
                 if (hoveredSlotIndex === i) {
@@ -852,12 +867,33 @@ class Renderer {
             }
         }
         
-        // Tooltip (wenn Inventar offen und über Item)
-        if (input.inventoryOpen) {
+        // Tooltip (wenn Inventar oder Crafting offen und über Item)
+        if (input.inventoryOpen || input.craftingOpen) {
             const hoveredSlotData = input.getHoveredSlot(inventory, hotbar, this);
             if (hoveredSlotData.slotIndex !== -1) {
-                const slot = inventory.getSlot(hoveredSlotData.slotIndex);
-                if (slot.item && slot.count > 0) {
+                let slot = null;
+                
+                // Crafting-Grid-Slot
+                if (hoveredSlotData.isCrafting) {
+                    const craftingSlotIndex = Math.abs(hoveredSlotData.slotIndex + 2000);
+                    const craftingSlot = game.crafting.getGridSlot(craftingSlotIndex);
+                    if (craftingSlot.item && craftingSlot.count > 0) {
+                        slot = craftingSlot;
+                    }
+                }
+                // Crafting-Result-Slot
+                else if (hoveredSlotData.isCraftingResult) {
+                    const resultSlot = game.crafting.getResultSlot();
+                    if (resultSlot.item && resultSlot.count > 0) {
+                        slot = resultSlot;
+                    }
+                }
+                // Normal Inventar/Hotbar
+                else {
+                    slot = inventory.getSlot(hoveredSlotData.slotIndex);
+                }
+                
+                if (slot && slot.item && slot.count > 0) {
                     this.renderTooltip(slot.item, hoveredSlotData);
                 }
             }
@@ -1301,6 +1337,11 @@ class Renderer {
             
             // System
             drawLine('Loaded Chunks: ', world.chunks.size.toString(), '#FFFF00');
+            drawLine('Broken Blocks: ', world.brokenBlocks.size.toString(), world.brokenBlocks.size <= 50 ? '#00FF00' : '#FFFF00');
+            drawLine('Animations: ', world.breakAnimations.length.toString(), world.breakAnimations.length <= 20 ? '#00FF00' : '#FFFF00');
+            drawLine('Item Drops: ', game.itemDrops.getItemCount().toString(), game.itemDrops.getItemCount() <= 30 ? '#00FF00' : '#FFFF00');
+            drawLine('Particles: ', game.particleSystem.getParticleCount().toString(), game.particleSystem.getParticleCount() <= 100 ? '#00FF00' : '#FFFF00');
+            currentY += 4; // Extra Abstand
             
             // Memory-Statistiken (wenn verfügbar)
             if (performance.memory) {
@@ -1326,7 +1367,10 @@ class Renderer {
             }
             
             const fps = Math.round(1000 / (Date.now() - (this.lastFrameTime || Date.now()) || 16));
-            drawLine('FPS: ', fps.toString(), fps >= 60 ? '#00FF00' : (fps >= 30 ? '#FFFF00' : '#FF0000'));
+            drawLine('VSync FPS: ', fps.toString(), fps >= 60 ? '#00FF00' : (fps >= 30 ? '#FFFF00' : '#FF0000'));
+            
+            const rawFps = game.rawFps || 0;
+            drawLine('Raw FPS: ', rawFps.toString(), '#00BFFF');
 
             this.ctx.restore();
             this.lastFrameTime = Date.now();

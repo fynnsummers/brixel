@@ -177,8 +177,8 @@ block-world/
 │   ├── ui/
 │   └── screens/
 │
+├── world.html
 ├── index.html
-├── load.html
 └── README.md
 ```
 
@@ -261,7 +261,7 @@ php -S localhost:8000
 Open:
 
 ```
-http://localhost:8000/load.html
+http://localhost:8000/index.html
 ```
 
 ---

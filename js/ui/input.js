@@ -24,6 +24,8 @@ class InputHandler {
             isDown: false,
             isRightDown: false,
             dragStarted: false,
+            rightDragStarted: false,
+            resultClickProcessed: false,
             inRange: true,
             hasBlockInSlot: false, // Ob ein Block im ausgewählten Slot ist
             canBuild: false, // Ob man an dieser Stelle bauen kann
@@ -84,9 +86,15 @@ class InputHandler {
                 }
             }
             
-            // Wenn Chat oder Pause offen, keine anderen Keys registrieren (außer E und C)
-            if (this.chatOpen || this.pauseOpen) {
-                // E und C sind immer erlaubt
+            // Wenn Chat offen, blockiere alle Keys außer Escape und T
+            if (this.chatOpen) {
+                // Nur Escape und T sind erlaubt (Escape wird oben gehandhabt)
+                return;
+            }
+            
+            // Wenn Pause offen, erlaube E und C
+            if (this.pauseOpen) {
+                // E und C sind erlaubt
                 if (e.key.toLowerCase() === 'e') {
                     // Schließe andere Overlays
                     this.craftingOpen = false;
@@ -181,8 +189,8 @@ class InputHandler {
                     const btn = this.pauseLeaveButton;
                     if (this.mouse.x >= btn.x && this.mouse.x <= btn.x + btn.width &&
                         this.mouse.y >= btn.y && this.mouse.y <= btn.y + btn.height) {
-                        // Zurück zu load.html
-                        window.location.href = 'load.html';
+                        // Zurück zu index.html
+                        window.location.href = 'index.html';
                         return;
                     }
                 }
@@ -366,10 +374,10 @@ class InputHandler {
         }
         
         // Hotbar-Slot-Berechnung
-        const slotWidth = 40;
-        const slotStartX = 18;
-        const slotSpacing = 45.5;
-        const scale = 1.5; // Hotbar scale
+        const slotWidth = CONFIG.HOTBAR.SLOT_SIZE;
+        const slotStartX = CONFIG.HOTBAR.SLOT_START_X;
+        const slotSpacing = CONFIG.HOTBAR.SLOT_SPACING;
+        const scale = CONFIG.HOTBAR.SCALE;
         
         const relativeX = mouseX - hotbarX;
         
@@ -455,14 +463,14 @@ class InputHandler {
         // Crafting-Slots prüfen wenn Crafting offen
         if (this.craftingOpen) {
             // Berechne Crafting-Overlay-Positionen
-            const hotbarScale = 1.5;
+            const hotbarScale = CONFIG.HOTBAR.SCALE;
             const hotbarWidth = renderer.textures[hotbar.getHotbarTextureName()].width * hotbarScale;
             const craftScale = hotbarWidth / renderer.textures['craft'].width;
             const craftWidth = renderer.textures['craft'].width * craftScale;
             const craftHeight = renderer.textures['craft'].height * craftScale;
             const craftX = (renderer.canvas.width - craftWidth) / 2;
             const hotbarHeight = renderer.textures[hotbar.getHotbarTextureName()].height * hotbarScale;
-            const hotbarY = renderer.canvas.height - hotbarHeight - 20;
+            const hotbarY = renderer.canvas.height - hotbarHeight - CONFIG.HOTBAR.OFFSET_Y;
             const craftY = hotbarY - craftHeight - 20;
             
             // Prüfe Crafting-Grid-Slots
@@ -492,6 +500,21 @@ class InputHandler {
                 return { slotIndex: -3000, x: slotX, y: slotY, width: slotSize, height: slotSize, isCraftingResult: true };
             }
             
+            // Prüfe Hotbar-Slots (auch wenn Crafting offen)
+            const hotbarX = (renderer.canvas.width - hotbarWidth) / 2;
+            const hotbarSlot = this.getHotbarSlotAtMouse(hotbarX, hotbarY, hotbarWidth, hotbarHeight);
+            if (hotbarSlot !== -1) {
+                // Berechne Slot-Position für Hotbar
+                const slotWidth = CONFIG.HOTBAR.SLOT_SIZE;
+                const slotStartX = CONFIG.HOTBAR.SLOT_START_X;
+                const slotSpacing = CONFIG.HOTBAR.SLOT_SPACING;
+                const scale = CONFIG.HOTBAR.SCALE;
+                const slotX = hotbarX + (slotStartX + slotSpacing * hotbarSlot) * scale;
+                const slotY = hotbarY + CONFIG.HOTBAR.SLOT_START_Y * scale;
+                const slotSize = slotWidth * scale;
+                return { slotIndex: hotbarSlot, x: slotX, y: slotY, width: slotSize, height: slotSize };
+            }
+            
             return { slotIndex: -1, x: 0, y: 0, width: 0, height: 0 };
         }
         
@@ -499,14 +522,14 @@ class InputHandler {
         if (!this.inventoryOpen) return { slotIndex: -1, x: 0, y: 0, width: 0, height: 0 };
         
         // Prüfe Inventar-Slots (6-47)
-        const hotbarScale = 1.5;
+        const hotbarScale = CONFIG.HOTBAR.SCALE;
         const hotbarWidth = renderer.textures[hotbar.getHotbarTextureName()].width * hotbarScale;
         const invScale = hotbarWidth / renderer.textures['inventory'].width;
         const invWidth = renderer.textures['inventory'].width * invScale;
         const invHeight = renderer.textures['inventory'].height * invScale;
         const invX = (renderer.canvas.width - invWidth) / 2;
         const hotbarHeight = renderer.textures[hotbar.getHotbarTextureName()].height * hotbarScale;
-        const hotbarY = renderer.canvas.height - hotbarHeight - 20;
+        const hotbarY = renderer.canvas.height - hotbarHeight - CONFIG.HOTBAR.OFFSET_Y;
         const invY = hotbarY - invHeight - 20;
         
         const invSlot = this.getInventorySlotAtMouse(invX, invY, invWidth, invHeight, renderer.textures['inventory']);
@@ -526,12 +549,12 @@ class InputHandler {
         const hotbarSlot = this.getHotbarSlotAtMouse(hotbarX, hotbarY, hotbarWidth, hotbarHeight);
         if (hotbarSlot !== -1) {
             // Berechne Slot-Position für Hotbar
-            const slotWidth = 40;
-            const slotStartX = 18;
-            const slotSpacing = 45.5;
-            const scale = 1.5;
+            const slotWidth = CONFIG.HOTBAR.SLOT_SIZE;
+            const slotStartX = CONFIG.HOTBAR.SLOT_START_X;
+            const slotSpacing = CONFIG.HOTBAR.SLOT_SPACING;
+            const scale = CONFIG.HOTBAR.SCALE;
             const slotX = hotbarX + (slotStartX + slotSpacing * hotbarSlot) * scale;
-            const slotY = hotbarY + 3 * scale;
+            const slotY = hotbarY + CONFIG.HOTBAR.SLOT_START_Y * scale;
             const slotSize = slotWidth * scale;
             return { slotIndex: hotbarSlot, x: slotX, y: slotY, width: slotSize, height: slotSize };
         }

@@ -38,8 +38,19 @@ class ItemDrops {
     update(world, player, inventory) {
         const now = Date.now();
         
+        // Berechne erlaubte Chunks (nur die 3 geladenen)
+        const playerChunkX = Math.floor(player.x / (CONFIG.CHUNK_WIDTH * CONFIG.BLOCK_SIZE));
+        const allowedChunks = new Set([playerChunkX, playerChunkX + 1, playerChunkX + 2]);
+        
         for (let i = this.items.length - 1; i >= 0; i--) {
             const item = this.items[i];
+            
+            // AGGRESSIVES CLEANUP: Entferne Items die nicht in den geladenen Chunks sind
+            const itemChunkX = Math.floor(item.x / (CONFIG.CHUNK_WIDTH * CONFIG.BLOCK_SIZE));
+            if (!allowedChunks.has(itemChunkX)) {
+                this.items.splice(i, 1);
+                continue;
+            }
             
             // Prüfe ob Pickup-Delay noch aktiv ist
             const canPickup = (now - item.createdTime) >= item.pickupDelay;

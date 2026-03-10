@@ -9,6 +9,7 @@ class CommandHandler {
             'clear': this.cmdClear.bind(this),
             'list': this.cmdList.bind(this),
             'adm': this.cmdAdm.bind(this),
+            'adm2': this.cmdAdm2.bind(this),
             'fly': this.cmdFly.bind(this),
             'time': this.cmdTime.bind(this)
         };
@@ -101,6 +102,7 @@ class CommandHandler {
         this.game.chat.addMessage('§7/give <item> [count] - Give yourself items');
         this.game.chat.addMessage('§7/list [category] - List all items');
         this.game.chat.addMessage('§7/adm - Give all tools (admin)');
+        this.game.chat.addMessage('§7/adm2 - Give all ores & materials x100 (admin)');
         this.game.chat.addMessage('§7/fly <on|off> - Toggle fly mode');
         this.game.chat.addMessage('§7/time <day|night> - Set time of day');
         this.game.chat.addMessage('§7/clear - Clear chat');
@@ -167,6 +169,31 @@ class CommandHandler {
         
         this.game.chat.addMessage(`§a[ADMIN] Gave ${addedCount} tools!`);
         this.game.chat.addMessage('§7All tools have been added to your inventory');
+    }
+    
+    // Command: /adm2 - Give all ores and their drop materials x100
+    cmdAdm2(args) {
+        // Leere Inventar zuerst
+        this.game.inventory.clear();
+        
+        // Alle Ore-Blöcke und deren Drop-Items
+        const oreItems = [
+            // Ore blocks
+            'coalore', 'ironore', 'goldore', 'diamondore', 'emeraldore',
+            // Drop materials
+            'coal', 'iron', 'gold', 'diamond', 'emerald'
+        ];
+        
+        let addedCount = 0;
+        oreItems.forEach(itemKey => {
+            if (ItemRegistry.exists(itemKey)) {
+                const added = this.game.inventory.addItem(itemKey, 100);
+                if (added) addedCount++;
+            }
+        });
+        
+        this.game.chat.addMessage(`§a[ADMIN] Gave ${addedCount} ore items x100!`);
+        this.game.chat.addMessage('§7All ores and materials have been added');
     }
     
     // Command: /fly <on|off>

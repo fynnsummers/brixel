@@ -79,6 +79,35 @@ class Inventory {
         }
     }
     
+    startSplitDrag(slotIndex) {
+        if (slotIndex < 0 || slotIndex >= this.slots.length) {
+            console.log(`Invalid slot index: ${slotIndex}`);
+            return;
+        }
+        
+        const slot = this.slots[slotIndex];
+        if (slot.item && slot.count > 1) {
+            // Berechne die Hälfte (aufgerundet)
+            const halfCount = Math.ceil(slot.count / 2);
+            const remainingCount = slot.count - halfCount;
+            
+            console.log(`Split dragging ${slot.item}: ${halfCount} in cursor, ${remainingCount} remaining`);
+            
+            // WICHTIG: Setze draggedSlot auf -1 (kein echter Slot), damit der ursprüngliche Slot sichtbar bleibt
+            this.draggedSlot = -1;
+            this.draggedItem = { item: slot.item, count: halfCount };
+            
+            // Lasse die andere Hälfte im Slot (bleibt sichtbar)
+            slot.count = remainingCount;
+        } else if (slot.item && slot.count === 1) {
+            // Nur 1 Item - normaler Drag
+            console.log(`Only 1 item, doing normal drag`);
+            this.startDrag(slotIndex);
+        } else {
+            console.log(`Slot ${slotIndex} is empty, cannot split drag`);
+        }
+    }
+    
     endDrag(targetSlotIndex) {
         console.log(`Ending drag to slot ${targetSlotIndex}, dragged from ${this.draggedSlot}`);
         
@@ -108,14 +137,25 @@ class Inventory {
             // Wenn Ziel-Slot ein anderes Item hat - tausche
             else {
                 console.log(`Swapping items`);
-                const tempItem = targetSlot.item;
-                const tempCount = targetSlot.count;
                 
-                targetSlot.item = this.draggedItem.item;
-                targetSlot.count = this.draggedItem.count;
-                
-                this.slots[this.draggedSlot].item = tempItem;
-                this.slots[this.draggedSlot].count = tempCount;
+                // Nur tauschen wenn draggedSlot ein echter Slot ist (nicht -1 bei Split-Drag)
+                if (this.draggedSlot >= 0 && this.draggedSlot < this.slots.length) {
+                    const tempItem = targetSlot.item;
+                    const tempCount = targetSlot.count;
+                    
+                    targetSlot.item = this.draggedItem.item;
+                    targetSlot.count = this.draggedItem.count;
+                    
+                    this.slots[this.draggedSlot].item = tempItem;
+                    this.slots[this.draggedSlot].count = tempCount;
+                } else {
+                    // Bei Split-Drag (draggedSlot = -1): Kann nicht tauschen, Item wird gedroppt
+                    console.log(`Cannot swap during split-drag, item will be dropped`);
+                    const droppedItem = { item: this.draggedItem.item, count: this.draggedItem.count };
+                    this.draggedSlot = null;
+                    this.draggedItem = null;
+                    return droppedItem;
+                }
             }
         }
         

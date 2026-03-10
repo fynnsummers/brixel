@@ -3,37 +3,69 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Brixel | New World</title>
-    <link rel="stylesheet" href="css/style.css">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <title>Brixel | Alpha</title>
+    <link rel="stylesheet" href="css/load.css">
 </head>
 <body>
-    <canvas id="terrain"></canvas>
-    <div id="coordinates">X: 0  Y: 0</div>
+    <div id="start-screen">
+        <canvas id="bg-canvas"></canvas>
+        <div class="overlay"></div>
+        <div class="content">
+            <img id="title-logo" src="assets/title.png" alt="Block World">
+            <button id="new-game-btn" class="pixel-button">New Game</button>
+            <button id="help-btn" class="pixel-button">Recipes</button>
+            <button id="items-btn" class="pixel-button">Item Index</button>
+            <p class="version">v<span id="version-start"></span></p>
+        </div>
+    </div>
 
-    <!-- Scripts in richtiger Reihenfolge laden -->
+    <div id="loading-screen" class="hidden">
+        <canvas id="loading-canvas"></canvas>
+        <div class="overlay"></div>
+        <div class="loading-content">
+            <h2>Generating World...</h2>
+            <img id="loading-gif" src="assets/ui/loading.gif" alt="Loading...">
+            <p class="version">v<span id="version-loading"></span></p>
+        </div>
+    </div>
+
+    <!-- Help Overlay -->
+    <div id="help-overlay" class="hidden">
+        <div class="help-content">
+            <div class="help-header">
+                <h2>Crafting Recipes</h2>
+                <button id="close-help-btn" class="close-btn">×</button>
+            </div>
+            <input type="text" id="recipe-search" class="recipe-search" placeholder="Search recipes...">
+            <div id="recipe-list" class="recipe-list">
+                <!-- Recipes will be dynamically loaded here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Item Index Overlay -->
+    <div id="items-overlay" class="hidden">
+        <div class="help-content">
+            <div class="help-header">
+                <h2>Item Index</h2>
+                <button id="close-items-btn" class="close-btn">×</button>
+            </div>
+            <input type="text" id="item-search" class="recipe-search" placeholder="Search items...">
+            <div id="item-list" class="item-list">
+                <!-- Items will be dynamically loaded here -->
+            </div>
+        </div>
+    </div>
+
+    <audio id="bg-music" loop volume="0.01">
+        <source src="assets/homemc.mp3" type="audio/mpeg">
+    </audio>
+
     <script src="js/core/config.js"></script>
-    <script src="js/core/items.js"></script>
     <script src="js/core/utils.js"></script>
+    <script src="js/core/items.js"></script>
+    <script src="js/ui/recipes.js"></script>
     <script src="js/world/world.js"></script>
-    <script src="js/entities/player.js"></script>
-    <script src="js/rendering/camera.js"></script>
-    <script src="js/ui/hotbar.js"></script>
-    <script src="js/ui/inventory.js"></script>
-    <script src="js/ui/crafting.js"></script>
-    <script src="js/ui/chatColors.js"></script>
-    <script src="js/ui/chat.js"></script>
-    <script src="js/ui/commands.js"></script>
-    <script src="js/entities/itemDrops.js"></script>
-    <script src="js/ui/health.js"></script>
-    <script src="js/ui/input.js"></script>
-    <script src="js/world/blockBreaker.js"></script>
-    <script src="js/world/blockPlacer.js"></script>
-    <script src="js/entities/particles.js"></script>
-    <script src="js/rendering/dayNightCycle.js"></script>
-    <script src="js/rendering/renderer.js"></script>
-    <script src="js/core/game.js"></script>
+    <script src="js/screens/load.js"></script>
 </body>
 </html>

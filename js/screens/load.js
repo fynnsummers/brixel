@@ -2,9 +2,19 @@
 
 const startScreen = document.getElementById('start-screen');
 const loadingScreen = document.getElementById('loading-screen');
+const helpOverlay = document.getElementById('help-overlay');
+const itemsOverlay = document.getElementById('items-overlay');
 const bgCanvas = document.getElementById('bg-canvas');
 const loadingCanvas = document.getElementById('loading-canvas');
 const newGameBtn = document.getElementById('new-game-btn');
+const helpBtn = document.getElementById('help-btn');
+const itemsBtn = document.getElementById('items-btn');
+const closeHelpBtn = document.getElementById('close-help-btn');
+const closeItemsBtn = document.getElementById('close-items-btn');
+const recipeSearch = document.getElementById('recipe-search');
+const recipeList = document.getElementById('recipe-list');
+const itemSearch = document.getElementById('item-search');
+const itemList = document.getElementById('item-list');
 const bgMusic = document.getElementById('bg-music');
 
 // Canvas Setup
@@ -135,11 +145,23 @@ async function loadTextures() {
     const textureNames = [
         'stone', 'dirt', 'dirt-grass', 'grass', 'coalore', 'ironore', 'goldore', 
         'diamondore', 'emeraldore', 'bedrock', 'diorite', 'granite',
-        'tree', 'tree-leaves', 'tree-head', 'dirt-grass-tree', 'wood', 'wood-stick'
+        'tree', 'tree-leaves', 'tree-head', 'dirt-grass-tree', 'wood', 'wood-stick',
+        'coal', 'iron', 'gold', 'diamond', 'emerald'
     ];
     
     const promises = textureNames.map(name => {
         return loadImage(name, `assets/textures/${name}.png`);
+    });
+    
+    // Tool textures
+    const toolTypes = ['pickaxe', 'axe', 'shovel', 'sword'];
+    const materials = ['wood', 'stone', 'iron', 'gold', 'diamond', 'emerald'];
+    
+    materials.forEach(material => {
+        toolTypes.forEach(tool => {
+            const name = `${tool}-${material}`;
+            promises.push(loadImage(name, `assets/tools/${name}.png`));
+        });
     });
     
     const results = await Promise.all(promises);
@@ -255,6 +277,252 @@ newGameBtn.addEventListener('click', () => {
     startGame();
 });
 
+// Help Button
+helpBtn.addEventListener('click', () => {
+    helpOverlay.classList.remove('hidden');
+    renderRecipes();
+});
+
+// Close Help Button
+closeHelpBtn.addEventListener('click', () => {
+    helpOverlay.classList.add('hidden');
+});
+
+// Recipe Search
+recipeSearch.addEventListener('input', (e) => {
+    renderRecipes(e.target.value.toLowerCase());
+});
+
+// Item Index Button
+itemsBtn.addEventListener('click', () => {
+    itemsOverlay.classList.remove('hidden');
+    renderItems();
+});
+
+// Close Item Index Button
+closeItemsBtn.addEventListener('click', () => {
+    itemsOverlay.classList.add('hidden');
+});
+
+// Item Search
+itemSearch.addEventListener('input', (e) => {
+    renderItems(e.target.value.toLowerCase());
+});
+
+// Render Items
+function renderItems(searchTerm = '') {
+    itemList.innerHTML = '';
+    
+    const allItems = ItemRegistry.listAll();
+    
+    // Filter items first
+    const filteredItems = allItems.filter(item => {
+        if (!searchTerm) return true;
+        return item.name.toLowerCase().includes(searchTerm) || 
+               item.key.toLowerCase().includes(searchTerm);
+    });
+    
+    // Sort by category, then by subcategory, then by name
+    filteredItems.sort((a, b) => {
+        if (a.category !== b.category) {
+            return a.category.localeCompare(b.category);
+        }
+        if (a.subcategory !== b.subcategory) {
+            return a.subcategory.localeCompare(b.subcategory);
+        }
+        return a.name.localeCompare(b.name);
+    });
+    
+    // Count items per category
+    const categoryCounts = {};
+    filteredItems.forEach(item => {
+        categoryCounts[item.category] = (categoryCounts[item.category] || 0) + 1;
+    });
+    
+    let currentCategory = null;
+    
+    filteredItems.forEach(item => {
+        // Add category header if category changed
+        if (item.category !== currentCategory) {
+            currentCategory = item.category;
+            
+            const categoryHeader = document.createElement('div');
+            categoryHeader.className = 'item-category-header';
+            
+            const categoryName = item.category.charAt(0).toUpperCase() + item.category.slice(1);
+            const count = categoryCounts[item.category];
+            
+            categoryHeader.textContent = `${categoryName} (${count})`;
+            itemList.appendChild(categoryHeader);
+        }
+        
+        // Create item card
+        const itemCard = document.createElement('div');
+        itemCard.className = 'item-card';
+        
+        // Item image
+        const itemImage = document.createElement('div');
+        itemImage.className = 'item-image';
+        
+        const texture = textures[item.key];
+        if (texture) {
+            const img = document.createElement('img');
+            img.src = texture.src;
+            itemImage.appendChild(img);
+        }
+        
+        itemCard.appendChild(itemImage);
+        
+        // Item name
+        const itemName = document.createElement('div');
+        itemName.className = 'item-name';
+        itemName.textContent = item.name;
+        itemCard.appendChild(itemName);
+        
+        // Item key (ID name)
+        const itemKey = document.createElement('div');
+        itemKey.className = 'item-id';
+        itemKey.textContent = item.key;
+        itemCard.appendChild(itemKey);
+        
+        itemList.appendChild(itemCard);
+    });
+    
+    // No results message
+    if (itemList.children.length === 0) {
+        const noResults = document.createElement('div');
+        noResults.style.color = '#fff';
+        noResults.style.textAlign = 'center';
+        noResults.style.fontSize = '16px';
+        noResults.style.gridColumn = '1 / -1';
+        noResults.textContent = 'No items found';
+        itemList.appendChild(noResults);
+    }
+}
+
+// Render Recipes
+function renderRecipes(searchTerm = '') {
+    recipeList.innerHTML = '';
+    
+    RECIPES.forEach(recipe => {
+        const resultItem = ItemRegistry.getByName(recipe.result.item);
+        if (!resultItem) return;
+        
+        // Filter by search term
+        if (searchTerm && !resultItem.name.toLowerCase().includes(searchTerm) && 
+            !recipe.result.item.toLowerCase().includes(searchTerm)) {
+            return;
+        }
+        
+        // Create recipe item
+        const recipeItem = document.createElement('div');
+        recipeItem.className = 'recipe-item';
+        
+        // Crafting row (grid + arrow + result visual)
+        const craftingRow = document.createElement('div');
+        craftingRow.className = 'recipe-crafting-row';
+        
+        // Create grid
+        const grid = document.createElement('div');
+        grid.className = 'recipe-grid';
+        
+        // Fill grid (4x4)
+        for (let row = 0; row < 4; row++) {
+            for (let col = 0; col < 4; col++) {
+                const slot = document.createElement('div');
+                slot.className = 'recipe-slot';
+                
+                // Check if pattern has this position
+                if (recipe.pattern && recipe.pattern[row] && recipe.pattern[row][col]) {
+                    const itemKey = recipe.pattern[row][col];
+                    const texture = textures[itemKey];
+                    
+                    if (texture) {
+                        const img = document.createElement('img');
+                        img.src = texture.src;
+                        slot.appendChild(img);
+                    }
+                }
+                
+                grid.appendChild(slot);
+            }
+        }
+        
+        craftingRow.appendChild(grid);
+        
+        // Arrow
+        const arrow = document.createElement('div');
+        arrow.className = 'recipe-arrow';
+        arrow.textContent = '→';
+        craftingRow.appendChild(arrow);
+        
+        // Result visual (image + name)
+        const resultVisual = document.createElement('div');
+        resultVisual.className = 'recipe-result-visual';
+        
+        const resultSlot = document.createElement('div');
+        resultSlot.className = 'recipe-result-slot';
+        
+        const resultTexture = textures[recipe.result.item];
+        if (resultTexture) {
+            const img = document.createElement('img');
+            img.src = resultTexture.src;
+            resultSlot.appendChild(img);
+        }
+        
+        // Count badge
+        if (recipe.result.count > 1) {
+            const count = document.createElement('div');
+            count.className = 'recipe-count';
+            count.textContent = recipe.result.count;
+            resultSlot.appendChild(count);
+        }
+        
+        resultVisual.appendChild(resultSlot);
+        
+        // Name
+        const name = document.createElement('div');
+        name.className = 'recipe-name';
+        name.textContent = resultItem.name;
+        resultVisual.appendChild(name);
+        
+        craftingRow.appendChild(resultVisual);
+        recipeItem.appendChild(craftingRow);
+        
+        // Description (below everything)
+        const description = document.createElement('div');
+        description.className = 'recipe-description';
+        
+        // Generate description like tooltips
+        let descLines = [];
+        if (resultItem.category === 'tools') {
+            if (resultItem.damage) {
+                descLines.push(`Damage: ${resultItem.damage}`);
+            }
+            if (resultItem.miningSpeed) {
+                descLines.push(`Speed: ${resultItem.miningSpeed}x`);
+            }
+        } else if (resultItem.description) {
+            descLines.push(resultItem.description);
+        }
+        
+        description.textContent = descLines.length > 0 ? descLines.join(' | ') : resultItem.name;
+        recipeItem.appendChild(description);
+        
+        recipeList.appendChild(recipeItem);
+    });
+    
+    // No results message
+    if (recipeList.children.length === 0) {
+        const noResults = document.createElement('div');
+        noResults.style.color = '#fff';
+        noResults.style.textAlign = 'center';
+        noResults.style.fontSize = '16px';
+        noResults.textContent = 'No recipes found';
+        recipeList.appendChild(noResults);
+    }
+}
+
 function startGame() {
     // Verstecke Start Screen
     startScreen.classList.add('hidden');
@@ -287,7 +555,7 @@ function startGame() {
             
             // Navigiere zum Spiel
             setTimeout(() => {
-                window.location.href = 'index.html';
+                window.location.href = 'world.html';
             }, 500);
         }
     }, 100);

@@ -20,6 +20,13 @@ canvas {
     cursor: none;
     user-select: none;
     -webkit-user-select: none;
+    
+    /* Hardware-Beschleunigung erzwingen */
+    transform: translateZ(0);
+    -webkit-transform: translateZ(0);
+    will-change: transform;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
 }
 
 #coordinates {

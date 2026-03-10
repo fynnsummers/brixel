@@ -64,6 +64,12 @@ class BlockPlacer {
             return null;
         }
         
+        // Prüfe ob Item platzierbar ist (z.B. Materialien wie coal, iron, etc. sind nicht platzierbar)
+        if (item && item.placeable === false) {
+            input.triggerShake();
+            return null;
+        }
+        
         const targetX = mouse.blockX;
         const targetY = mouse.blockY;
         

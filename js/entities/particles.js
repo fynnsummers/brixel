@@ -43,6 +43,9 @@ class ParticleSystem {
     }
     
     update() {
+        // Bereinige alte Partikel aggressiv
+        const now = Date.now();
+        
         for (let i = this.particles.length - 1; i >= 0; i--) {
             const p = this.particles[i];
             
@@ -55,13 +58,18 @@ class ParticleSystem {
             // Reibung
             p.vx *= 0.98;
             
-            // Leben reduzieren
-            p.life -= p.decay;
+            // Leben reduzieren (schneller)
+            p.life -= p.decay * 1.5; // 50% schneller verschwinden
             
             // Entferne tote Partikel
             if (p.life <= 0) {
                 this.particles.splice(i, 1);
             }
+        }
+        
+        // Limit: Maximal 100 Partikel gleichzeitig
+        if (this.particles.length > 100) {
+            this.particles = this.particles.slice(-100);
         }
     }
     
